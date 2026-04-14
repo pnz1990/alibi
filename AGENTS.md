@@ -2,20 +2,16 @@
 
 ## What This Is
 
-ALIBI is a noir pixel-art logic-deduction game playable in the browser, statically hosted on GitHub Pages. No backend. No server. Pure frontend.
+ALIBI is a browser murder mystery logic-deduction game inspired by the book Murdoku (Manuel Garand). Players place suspects on a top-down illustrated floor plan by satisfying natural-language "alibis." Every puzzle is procedurally generated from a theme template. Infinite replayability. Statically hosted on GitHub Pages.
 
-The player is a detective viewing a top-down crime scene grid. By satisfying textual "alibis" (clues) and Sudoku-like grid constraints, they place 8 suspects to reveal the victim's location and identify the killer.
-
-Inspired by the board game Murdoku. Implemented as a vanilla TypeScript + Vite single-page application with pixel-art assets.
-
-**Status**: Pre-release. Specification complete. Implementation not started.
+**Status**: Pre-release. Architecture complete. Implementation not started.
 
 ---
 
 ## SDLC Process
 
 The team process lives in `.specify/memory/sdlc.md` — read it.
-This file contains only project-specific context that specializes the generic process.
+This file contains only project-specific context.
 
 ---
 
@@ -41,74 +37,100 @@ export AGENT_ID="COORDINATOR"  # change per session
 
 ```yaml
 PROJECT_NAME:   alibi
-CLI_BINARY:     ""                  # no CLI — browser only
+CLI_BINARY:     ""
 PR_LABEL:       alibi
 REPORT_ISSUE:   1
 REPORT_URL:     https://github.com/pnz1990/alibi/issues/1
-BOARD_URL:      ""                  # fill after GitHub Projects board creation
+BOARD_URL:      ""
 BUILD_COMMAND:  npm run build
 TEST_COMMAND:   npm test
 E2E_COMMAND:    npm run test:e2e
 LINT_COMMAND:   npm run lint
 VULN_COMMAND:   ""
-DEV_SERVER:     npm run dev         # starts Vite dev server on http://localhost:5173
+DEV_SERVER:     npm run dev
 ```
 
 ---
 
 ## Architecture
 
-ALIBI is a **frontend-only** single-page application. No server, no database, no API calls at runtime. Everything runs in the browser.
+ALIBI is a **frontend-only** SPA. No server, no database, no runtime API calls.
 
-**Stack**: TypeScript + Vite, rendered to a `<canvas>` element for pixel-art rendering. Game state is plain in-memory objects. Levels are JSON files bundled at build time. Deployed as static files to GitHub Pages via `gh-pages` branch.
+**Stack**: TypeScript + Vite. Rendered to HTML5 Canvas 2D (pixel-perfect integer scaling). Puzzle state in plain TS objects. Seed in URL hash.
 
-**Rendering**: HTML5 Canvas 2D API. Pixel-art sprites rendered at integer scale (2x or 3x). No WebGL.
+**Core pipeline:**
+```
+Seed (PRNG)
+  → Theme Template (floor plan, sprite catalog, name set)
+    → Generator (place suspects, place objects, verify constraint, generate clues)
+      → Puzzle (grid state, clue list, solution)
+        → Renderer (canvas + DOM overlay)
+          → Input (click → radial menu → placement)
+            → Win condition check
+```
 
-**State**: All game state (placed suspects, clue satisfaction, win/lose) lives in a plain TypeScript object. No Redux, no external state library. URL hash encodes current level for sharable links.
+**Grid**: 6×6. Columns 1–6 (x=0–5, left to right). Rows 1–6 (y=0–5, top to bottom).
+**North = smaller y. South = larger y.**
 
-**Levels**: Each level is a `levels/<id>.json` file describing: the 9×9 grid tile map (floor/solid/seat), room zone boundaries, the 8 suspects + victim, and the clue set.
+**Suspects**: 6–8 per puzzle, drawn from the theme's name set.
+**Victim**: Always the last remaining empty cell after all suspects are placed.
+**Killer**: The suspect whose cell shares a Room Zone with the victim's cell.
+
+---
 
 ## Package Layout
 
 ```
 src/
   engine/
-    grid.ts           # 9x9 grid model: tile types, room zones, placement
-    logic.ts          # Logic engine: Rule of One (Sudoku), spatial mask, clue eval
-    clues.ts          # Clue type definitions + evaluators (adjacency, room, LoS, distance)
-    solver.ts         # Constraint solver to verify level solvability
+    grid.ts           # 6×6 grid model: tile types, zones, object placement
+    logic.ts          # Rule of One, spatial mask, win condition
+    clues.ts          # All clue type evaluators — pure functions
+    generator.ts      # Procedural puzzle generator (seeded PRNG)
+    solver.ts         # Constraint solver — verifies unique solution
   render/
-    canvas.ts         # Canvas renderer: grid, sprites, shadows, UI overlays
-    sprites.ts        # Sprite sheet loader and tile blit
-    ui.ts             # Sidebar case file, clue strikethrough, radial menus
-    overlay.ts        # How-to-play modal
+    canvas.ts         # Canvas renderer: tiles, sprites, shadows, overlays
+    sprites.ts        # SVG sprite loader and blit (floor objects)
+    portraits.ts      # Suspect portrait card renderer
+    ui.ts             # Sidebar: clue cards, satisfaction strikethrough
+    overlay.ts        # How-to-play modal, narrative intro, share card
   game/
-    state.ts          # Game state machine: idle → narrative → placing → solved → reveal → accusation → end
-    input.ts          # Click/tap event handling → radial menu → placement
-    levels.ts         # Level loader from JSON
+    state.ts          # State machine: idle → narrative → placing → solved → reveal → guilty → end
+    input.ts          # Click → radial menu → placement; keyboard nav
     undo.ts           # Undo/redo stack
-    sound.ts          # Web Audio API sound synthesis
-    save.ts           # localStorage progress persistence
-    share.ts          # Completion card generator
-  levels/             # Level JSON files (one per theme)
-    001-speakeasy.json
-    002-luxury-liner.json
-    003-art-gallery.json
-    004-greenhouse.json
+    sound.ts          # Web Audio API synthesis (no audio files)
+    save.ts           # localStorage seed persistence + placement auto-save
+    share.ts          # Completion card + clipboard copy
+  themes/             # One module per theme
+    coffee-shop.ts
+    bookstore.ts
+    backyard.ts
+    holiday-shopping.ts
+    index.ts          # Theme registry
   assets/
-    sprites/          # Pixel-art sprite sheets (PNG, optional for v1.0)
-    fonts/            # Pixel font (bitmap)
-  main.ts             # Entry point
+    sprites/          # SVG furniture icons (bundled, not fetched at runtime)
+      chair.svg
+      plant.svg
+      table.svg
+      shelf.svg
+      cash-register.svg
+      bed.svg
+      sofa.svg
+      jacuzzi.svg
+      tree.svg
+      tv.svg
+      door.svg
+      # ... all furniture types used by all themes
+    portraits/        # SVG suspect portrait illustrations (one per name)
+  main.ts
 tests/
-  e2e/                # Playwright end-to-end tests — SEE §E2E Testing below
-    level1.spec.ts    # Full playthrough of Level 1 (The Speakeasy)
-    level2.spec.ts    # Full playthrough of Level 2 (The Luxury Liner)
-    level3.spec.ts    # Full playthrough of Level 3 (The Art Gallery)
-    level4.spec.ts    # Full playthrough of Level 4 (The Greenhouse)
-    placement.spec.ts # Rule of One blocking, wall tile blocking, clue gate
-    undo.spec.ts      # Undo/redo flows
-    save.spec.ts      # localStorage save/restore
-    share.spec.ts     # Completion card copy
+  e2e/
+    smoke.spec.ts
+    gameplay.spec.ts  # Full playthrough (generate puzzle → solve → GUILTY)
+    generator.spec.ts # Generator produces valid, unique-solution puzzles
+    undo.spec.ts
+    save.spec.ts
+    share.spec.ts
 index.html
 vite.config.ts
 playwright.config.ts
@@ -121,161 +143,311 @@ package.json
 ## Game Mechanics Reference
 
 ### Grid
-- 9×9 cells. Columns labeled A–I (x), rows 1–9 (y).
-- Each cell is: `Floor` | `Solid` | `Seat`. Suspects can only be placed on Floor or Seat.
-- Cells belong to exactly one Room Zone (e.g. "The Bar", "The Kitchen").
+
+- **6×6 cells.** Column 1–6 (x=0–5), Row 1–6 (y=0–5).
+- **North = smaller y (up on screen). South = larger y.**
+- Each cell has exactly one tile type:
+  - `floor` — walkable, placeable
+  - `wall` — impassable, not placeable
+  - `chair` / `sofa` / `bed` — seat tile, placeable (suspect can sit here)
+  - `object` — furniture object (plant, shelf, table, cash register, etc.) — NOT placeable, but usable as landmark in clues. Has a `objectType` string (e.g. "plant", "table", "shelf").
+- Each non-wall cell belongs to exactly one **Room Zone** (e.g. "Bar", "Main Area").
+- `isBeside(A, B)` = Moore neighbourhood: `max(abs(dx), abs(dy)) <= 1` (includes diagonals).
+- `isBeside(A, objectType)` = A is beside any cell of that object type.
 
 ### Suspects
-- 8 suspects: Arthur, Beatrice, Caspar, Dolores, Elias, Fiona, Gideon, Harlow.
-- 1 victim: always starts with V (Vincent, Vera, Victor…).
-- The killer = the suspect in the same Room Zone as the victim once the grid is solved.
 
-### Logic Layers
-- **Layer A — Rule of One**: Each row and each column may contain at most one suspect. After all 8 suspects are placed, exactly one unblocked cell remains — that is the Body's Location.
-- **Layer B — Spatial Mask**: Suspects may only be placed on Floor or Seat tiles. Solid tiles are blocked.
-- **Layer C — Testimony (Clues)**: Boolean expressions evaluated in real time. Types:
-  - `isBeside(A, B)` — `abs(A.x-B.x) <= 1 && abs(A.y-B.y) <= 1`
-  - `isInRoom(C, "Library")` — C's cell Room Zone == "Library"
-  - `isInSameRow(D, "Grand Piano")` — D.y == landmark.y
-  - `isFarFrom(E, F, 3)` — Chebyshev distance >= 3
-  - `isNorthOf(A, B, n)` — A.y == B.y - n
+- 6–8 suspects per puzzle, drawn from theme name set.
+- Each has a name, a portrait SVG, and a suspect ID (A–H in order).
+- 1 victim per puzzle — named V (e.g. "Vander", "Violet", "Vlimbo"). The victim is NOT placed by the player; they are revealed at the last empty valid cell.
+- The killer = the suspect whose placed cell shares a Room Zone with the victim's cell.
+
+### Rule of One (Layer A)
+
+Every row (1–6) and every column (1–6) contains at most one suspect. Placing a suspect blocks that row and column for all other suspects. After all suspects are placed, exactly one non-wall, non-object cell remains unblocked — this is the victim's cell.
+
+### Spatial Mask (Layer B)
+
+Suspects can only be placed on `floor`, `chair`, `sofa`, or `bed` tiles. `wall` and `object` tiles cannot be occupied.
+
+### Clue Types (Layer C — all 14)
+
+All clue type evaluators are pure functions in `src/engine/clues.ts`. Natural-language templates live in each theme module.
+
+| ID | Natural language example | Logic |
+|----|--------------------------|-------|
+| `inRoom` | "She was in the Bar." | suspect.zone == zoneId |
+| `notInRoom` | "He was not in the Kitchen." | suspect.zone != zoneId |
+| `inSameRoom` | "She was in the same room as Alan." | A.zone == B.zone |
+| `inDifferentRoom` | "They were in different rooms." | A.zone != B.zone |
+| `inColumn` | "He was in the third column." | suspect.x == col-1 |
+| `inRow` | "She was in the second row." | suspect.y == row-1 |
+| `isBesideSuspect` | "She was beside Finlay." | Chebyshev(A,B) <= 1 |
+| `isNotBesideSuspect` | "He was not beside a plant." (suspect) | Chebyshev(A,B) > 1 |
+| `isBesideObject` | "He was beside a table." | any object cell of type within Chebyshev 1 |
+| `isNotBesideObject` | "She was not beside a shelf." | no object cell of type within Chebyshev 1 |
+| `onTileType` | "She was in a chair." / "She was sitting." | suspect.tileType == "chair" or "sofa" |
+| `notOnTileType` | "She was not sitting in a chair." | suspect.tileType != "chair" |
+| `northOf` | "He was north of Chloe." (any row above) | A.y < B.y |
+| `southOf` | "He was south of Aria." (any row below) | A.y > B.y |
+| `exactlyNorthOf` | "He was exactly one row north of Gemma." | B.y - A.y == n |
+| `exactlySouthOf` | "She was exactly two rows south of Alan." | A.y - B.y == n |
+
+Note: `northOf` and `southOf` without "exactly" mean **any** row above/below (not just adjacent), matching the Murdoku book's definition. "Exactly" clues specify a precise offset.
 
 ### Win Condition
-1. Player places all 8 suspects satisfying all clues.
-2. Player clicks the single remaining valid empty cell.
-3. Victim sprite appears at that cell.
-4. Engine identifies the suspect sharing that Room Zone — that is the killer.
-5. "GUILTY" stamp slams onto screen.
-6. A shareable completion card is generated and shown: level name, time taken, and a text-art summary (copyable for social sharing, à la Wordle).
+
+1. All suspects placed (satisfying all clues AND Rule of One AND spatial mask).
+2. Exactly one valid non-wall, non-object cell remains unblocked — the victim's cell — highlighted.
+3. Player clicks it → victim portrait appears + victim-found narrative.
+4. Engine finds which suspect's cell shares a zone with the victim → that is the killer.
+5. GUILTY stamp + killer name displayed.
+6. Share card generated. "New Puzzle" button available.
+
+### Clue Satisfaction Gate
+
+If a player clicks the victim cell while any clue is unsatisfied: unsatisfied clue cards flash red, message "Something doesn't add up..." — no GUILTY. Player must resolve clues first.
+
+---
+
+## Procedural Generator
+
+`src/engine/generator.ts` takes a `seed: number` and a `theme: Theme` and returns a complete `Puzzle` object with verified unique solution.
+
+### Generator algorithm
+
+```
+1. Initialize PRNG with seed.
+2. Load theme floor plan (fixed room layout + tile types).
+3. Place furniture objects: randomly sample from theme's object catalog,
+   place on floor tiles, ensure no object blocks all walkable cells in a zone.
+4. Choose N suspects (6–8) from theme's name set (PRNG order).
+5. Compute all valid cells (floor/chair/sofa/bed, not wall/object).
+6. Place suspects: assign each suspect to a unique row AND unique column
+   (Latin square constraint) on a valid cell. Use PRNG + backtracking.
+7. Derive victim cell: the single remaining valid cell after all suspects'
+   rows and columns are blocked.
+8. Derive killer: suspect whose cell shares a zone with victim cell.
+9. Generate clues: for each suspect, generate 1 clue that constrains their
+   position using the 14 clue types. Mix zone clues, column/row clues,
+   adjacency clues, tile-type clues. Prefer variety.
+10. Verify uniqueness: run solver. If multiple solutions exist, add one more
+    clue and re-verify. Repeat until unique.
+11. Return Puzzle object.
+```
+
+### Uniqueness contract
+
+The solver MUST confirm exactly 1 solution before the puzzle is returned to the renderer. The generator retries (up to 20 attempts with fresh PRNG state) if no unique-solution clue set is found. If all retries fail, `generator.ts` throws an error — this must never reach the player.
+
+### Seeding and sharing
+
+```typescript
+// URL hash format: #theme=coffee-shop&seed=1234567890
+// "New Puzzle" generates a new random seed and pushes to URL hash.
+// Sharing the URL always reproduces the exact same puzzle.
+```
+
+---
+
+## Theme Module Interface
+
+Each theme exports a `Theme` object implementing this interface:
+
+```typescript
+interface Theme {
+  id: string;                          // "coffee-shop"
+  name: string;                        // "The Coffee Shop"
+  floorPlan: FloorPlan;                // fixed 6×6 tile layout + zone definitions
+  objectCatalog: ObjectType[];         // furniture types available in this theme
+  suspectNames: SuspectName[];         // name pool (at least 12 names)
+  victimNames: string[];               // victim name pool (start with V)
+  narrativeTemplates: NarrativeTemplates;
+  colorPalette: ThemePalette;          // floor/wall/zone colors
+  spriteMap: Record<ObjectType, string>; // objectType → SVG asset path
+}
+```
+
+---
+
+## Sprite Assets
+
+SVG furniture sprites live in `src/assets/sprites/`. They are imported directly by Vite (bundled into the JS/HTML at build time, no runtime fetch). Portrait SVGs live in `src/assets/portraits/`.
+
+**Sprites required for v1.0** (one SVG per type):
+`chair`, `sofa`, `bed`, `plant`, `table`, `shelf`, `cash-register`, `tree`, `jacuzzi`, `tv`, `door`, `teddy-bear`, `register`
+
+Sprites must be: viewBox 32×32, clean flat vector, consistent color style across all. No photographic or raster elements.
+
+Portrait SVGs: one per suspect name (at least 12 per theme × 4 themes = ~24 portraits). Style: flat vector face illustration, unique hair/glasses/features per person, no text. 64×64 viewBox.
+
+**QA does NOT block PRs for missing or placeholder sprite files.** A missing sprite falls back to a labeled colored rectangle. Real SVG sprites are an enhancement within v1.0 — the generator and gameplay must work before sprites are added.
+
+---
+
+## UX Mechanics
+
+### Placement interaction
+- Click a `floor/chair/sofa/bed` cell → radial menu opens with available suspects + Clear option.
+- Click a `wall` or `object` cell → nothing (no flash, just ignore).
+- Click a cell in a blocked row/column → cell flashes red briefly (500ms), no menu.
+- Click a cell already occupied by a suspect → radial menu opens with Clear option.
+
+### Shadows
+- Placing a suspect draws a semi-transparent overlay over the entire row and column.
+- Clearing a suspect removes its row/column shadow.
 
 ### Undo / Redo
-- Every placement and clear action is recorded in an undo stack (max 50 entries).
-- **Undo button** in UI (and keyboard shortcut `Ctrl+Z` / `Cmd+Z`) reverts the last placement or clear.
-- **Redo** (`Ctrl+Shift+Z` / `Cmd+Shift+Z`) re-applies an undone action.
-- Undo stack is reset on level start and level reset.
-- There is no penalty for undoing. Players can undo freely.
+- Every placement and clear is recorded in an undo stack (max 50 entries).
+- `Ctrl/Cmd+Z` undo, `Ctrl/Cmd+Shift+Z` redo. Undo button in sidebar.
 
-### Sound Design
-- All sounds are generated with the **Web Audio API** — no audio files required in the bundle (zero asset size cost).
-- Sound events:
-  - `place`: soft click (short sine burst, ~80ms)
-  - `clear`: reversed click (same burst, time-reversed)
-  - `clue-satisfied`: soft chime (two ascending tones)
-  - `blocked`: low thud (short noise burst)
-  - `guilty-stamp`: dramatic bass hit + reverb tail
-  - `victim-reveal`: rising tension arpeggio
-- Sounds are enabled by default. A mute toggle (🔇) in the top-right corner persists to `localStorage`.
+### Sound
+- Web Audio API synthesis only — no audio files. Zero bundle cost.
+- Events: `place`, `clear`, `clue-satisfied`, `blocked`, `victim-reveal`, `guilty-stamp`.
+- Mute toggle (🔇) persists to `localStorage`.
 
-### How to Play Overlay
-- Shown automatically on **first visit** only (tracked via `localStorage`).
-- A modal overlay with 4 slides: (1) game concept, (2) placing suspects, (3) reading clues, (4) finding the killer.
-- Dismissable with Escape or a "Got it →" button.
-- Always accessible via a "?" button in the UI corner.
+### Progress save
+- Auto-save current placements to `localStorage` keyed by seed + theme.
+- On load: if a save exists for the current seed, restore with "Resume?" prompt.
 
-### Level Narrative
-Each level JSON includes a `narrative` object with:
-- `intro`: 2–3 sentences of noir flavor text, read-aloud style. Shown before the grid appears.
-- `victim_found`: 1 sentence shown when the victim cell is clicked ("The body of Vincent was found slumped behind the bar...")
-- `guilty_text`: 1 sentence for the accusation screen ("Elias — you were in the Entrance when the shot rang out.")
+### Share card
+- On GUILTY: show completion card with theme name, time, killer name, seed URL.
+- "Copy result" copies text card to clipboard (à la Wordle).
 
-Narrative text is authored in `docs/level-designs.md` and must be included in the level JSON. QA blocks PRs where `narrative` is missing or has placeholder text like "TODO".
-
-### Progress Save
-- Current placement state is auto-saved to `localStorage` every time a suspect is placed or cleared.
-- Key: `alibi_progress_<level-id>`. Value: JSON of current placements.
-- On level load: if a save exists for that level, it is restored automatically with a "Resume?" prompt.
-- Completing a level clears its save. Resetting a level clears its save.
-
-### Shareability
-On completing a level, the game generates a shareable text card:
-```
-ALIBI — The Speakeasy 🔍
-Solved in 4m 32s
-🟥🟥🟥🟥🟥🟥🟥🟥
-Killer: Elias
-alibi.pnz1990.com
-```
-A "Copy result" button copies this to the clipboard. No social API required.
-
-### Difficulty Rating
-Each level JSON includes a `difficulty` field: `"easy"` | `"medium"` | `"hard"`.
-The level select screen shows this as a star rating (1–3 stars). Level order within the select is always by difficulty ascending.
+### How-to-play
+- Modal on first visit (localStorage flag). 4 slides: concept, placing, clues, accusation.
+- Always accessible via "?" button.
 
 ---
 
 ## Code Standards
 
-- TypeScript strict mode. `"strict": true` in tsconfig.
-- No `any`. No type assertions without comment.
-- Pure functions for all logic (grid.ts, logic.ts, clues.ts). Side effects only in render/ and input.ts.
-- No external runtime dependencies beyond Vite dev tooling. Zero npm packages in the production bundle.
-- Tests: Vitest, co-located `*.test.ts` files. All logic-layer functions must have unit tests.
-- Every level JSON must pass the solver (constraint solver verifies unique solution) before merge.
-- Copyright header on every source file: `// Copyright 2026 The alibi Authors. Apache-2.0.`
-- ESLint with `@typescript-eslint/recommended` ruleset. `npm run lint` must exit 0 before merge.
+- TypeScript strict mode. `"strict": true`.
+- No `any` without justifying comment.
+- Pure functions for all engine code (`src/engine/`). Side effects only in `src/render/` and `src/game/`.
+- Tests: Vitest for engine (unit), Playwright for render/game (e2e).
+- Copyright header: `// Copyright 2026 The alibi Authors. Apache-2.0.`
+- ESLint with `@typescript-eslint/recommended`. `npm run lint` must exit 0.
+- Conventional Commits: `feat(scope):`, `fix(scope):`, `chore(scope):`
 
-## Coordinate System (all agents must know this)
+---
 
-- Grid: 9×9. x = column 0–8 (A–I, left to right). y = row 0–8 (row 1–9, top to bottom).
-- **North = smaller y (up on screen). South = larger y (down on screen).**
-- Chebyshev distance: `max(abs(dx), abs(dy))`. Used for `isFarFrom` and `isNorthOf`/`isSouthOf`.
-- `isBeside` = Moore neighbourhood (8 surrounding cells, Chebyshev distance ≤ 1).
+## E2E Testing — MANDATORY
 
-## Rule of One Conflict Behavior (UX decision)
+Every feature affecting the browser must be verified with Playwright (`npm run test:e2e`) AND the OpenCode browser extension (`browser_screenshot`, `browser_click`, `browser_errors`). See §E2E Testing Protocol below.
 
-When a player tries to place a suspect in a row or column already occupied by another suspect:
-- **The placement is BLOCKED** — the radial menu does not appear, and no placement occurs.
-- The cell flashes red for 500ms to indicate why it is blocked.
-- This is a hard block, not a soft warning. Players must first clear the conflicting suspect.
+### Required data-testid attributes
 
-## Win Condition — Clue Satisfaction Gate
+| Element | data-testid |
+|---------|-------------|
+| Canvas element | `game-canvas` |
+| Theme selector | `theme-select` |
+| New Puzzle button | `btn-new-puzzle` |
+| Radial menu | `radial-menu` |
+| Suspect option (A–H) | `suspect-option-[A-H]` |
+| Clear option | `suspect-option-clear` |
+| Each clue card | `clue-[id]` (e.g. `clue-0`, `clue-1`) |
+| Satisfied clue | add class `clue-satisfied` |
+| Unsatisfied clue (flashing) | add class `clue-error` |
+| Victim cell highlight | `victim-cell` |
+| GUILTY stamp | `guilty-stamp` |
+| GUILTY killer name | `guilty-killer-name` |
+| Undo button | `btn-undo` |
+| Redo button | `btn-redo` |
+| Mute button | `btn-mute` |
+| Share button | `btn-share` |
+| Help button | `btn-help` |
+| How-to-play modal | `overlay-howtoplay` |
+| Narrative intro screen | `narrative-intro` |
+| Resume prompt | `prompt-resume` |
+| "Something doesn't add up" msg | `msg-clue-gate` |
 
-- The "victim cell" (the single remaining unblocked empty cell) is **always highlighted** once all 8 suspects are placed.
-- **If any clue is unsatisfied when the player clicks the victim cell**: the accusation screen does NOT trigger. Instead, unsatisfied clues in the sidebar flash red and a message reads "Something doesn't add up..." The player must fix the clue violations first.
-- **Only when all clues are satisfied AND the player clicks the victim cell** does the body-reveal + GUILTY sequence play.
+Each grid cell: `data-testid="cell-{x}-{y}"` on its clickable overlay element.
 
-## Pixel Art — v1.0 Scope
+### Playwright test pattern
 
-- v1.0 uses **placeholder sprites only**: suspects rendered as colored 16×16 rectangles with their initial letter (A–H) in a pixel font. Victim rendered as a "?" sprite.
-- Theme tile graphics (floor, wall, seat) are distinct flat colors per theme — no bitmapped artwork required for v1.0.
-- Real pixel-art sprites are a post-v1.0 enhancement. QA must NOT block PRs for missing artwork.
-- The `assets/sprites/` directory exists but may be empty at v1.0. The renderer falls back to placeholder rendering if a sprite file is absent.
+```typescript
+import { test, expect } from '@playwright/test';
+
+test('full playthrough — coffee shop', async ({ page }) => {
+  // Use seed=12345 which the test suite controls for determinism
+  await page.goto('/?theme=coffee-shop&seed=12345');
+  await page.click('[data-testid="narrative-intro"] button');
+
+  // The puzzle object is exposed as window.__alibi_puzzle in test builds
+  const solution = await page.evaluate(() => (window as any).__alibi_puzzle.solution);
+
+  // Place each suspect
+  for (const [suspectId, pos] of Object.entries(solution)) {
+    await page.click(`[data-testid="cell-${(pos as any).x}-${(pos as any).y}"]`);
+    await page.click(`[data-testid="suspect-option-${suspectId}"]`);
+  }
+
+  // All clues satisfied
+  const clueCount = await page.locator('[data-testid^="clue-"]').count();
+  for (let i = 0; i < clueCount; i++) {
+    await expect(page.locator(`[data-testid="clue-${i}"]`)).toHaveClass(/clue-satisfied/);
+  }
+
+  // Click victim cell → GUILTY
+  await page.click('[data-testid="victim-cell"]');
+  await expect(page.locator('[data-testid="guilty-stamp"]')).toBeVisible();
+  await expect(page.locator('[data-testid="guilty-killer-name"]')).not.toBeEmpty();
+});
+```
+
+**Important**: In test/dev builds, `window.__alibi_puzzle` must be set to the current puzzle object so Playwright tests can read the solution without hard-coding it. This is gated by `import.meta.env.DEV || import.meta.env.TEST`.
+
+### Browser extension verification checklist (required before every PR)
+
+```
+[ ] browser_navigate("http://localhost:5173")
+[ ] browser_screenshot() → grid renders, no blank canvas
+[ ] browser_screenshot() after first suspect placement → shadow visible
+[ ] browser_screenshot() after all suspects placed → victim cell highlighted
+[ ] browser_screenshot() after victim click with unsatisfied clues → error state
+[ ] browser_screenshot() after correct solution + victim click → GUILTY stamp visible
+[ ] browser_errors() → zero JS errors
+[ ] browser_console(filter="error") → empty
+```
+
+At least one browser_screenshot must appear in every PR body that touches render/game/themes.
+
+### Anti-patterns (QA blocks PRs containing these)
+
+| Pattern | Caught by |
+|---|---|
+| Engine logic inside `src/render/` or `src/game/` | QA |
+| Any `fetch()` at runtime (sprites must be bundled) | QA |
+| `any` type without justifying comment | QA |
+| Generator producing puzzle with 0 or 2+ solutions | QA (solver test) |
+| `data-testid` missing on interactive/observable element | QA |
+| `page.click('canvas', {position:{x,y}})` in Playwright tests | QA — banned |
+| PR body missing `browser_screenshot` (for render/game PRs) | QA |
+| `window.__alibi_puzzle` not exposed in DEV/TEST builds | QA |
+| Runtime npm package import in `src/` | QA |
+| Hardcoded solution or seed in engine code | QA |
+
+---
 
 ## Banned Filenames
 
 `utils.ts`, `helpers.ts`, `common.ts`, `misc.ts`
 
-## Label Taxonomy
+---
 
-All issues must have labels from each of these groups:
+## Label Taxonomy
 
 | Group | Labels |
 |---|---|
-| Kind | `kind/enhancement`, `kind/bug`, `kind/chore`, `kind/docs` |
-| Area | `area/engine`, `area/render`, `area/game`, `area/levels`, `area/ui`, `area/deploy` |
+| Kind | `kind/enhancement`, `kind/bug`, `kind/chore`, `kind/docs`, `kind/security` |
+| Area | `area/engine`, `area/generator`, `area/render`, `area/game`, `area/themes`, `area/ui`, `area/deploy` |
 | Priority | `priority/critical`, `priority/high`, `priority/medium`, `priority/low` |
 | Size | `size/xs`, `size/s`, `size/m`, `size/l`, `size/xl` |
 | Type | `epic` |
-| Workflow | `alibi` (PR_LABEL), `needs-human`, `blocked` |
+| Workflow | `alibi`, `needs-human`, `blocked` |
 
-## Anti-Patterns (QA blocks PRs containing these)
-
-| Pattern | Caught by |
-|---|---|
-| Game logic inside render/ or input.ts | QA |
-| Any `fetch()` or network call at runtime | QA |
-| `any` type without justifying comment | QA |
-| Level JSON with non-unique solution (solver must verify) | QA |
-| Canvas state mutation outside `canvas.ts` | QA |
-| External npm runtime dependency added to bundle | QA |
-| Level JSON missing `narrative` field or with placeholder text ("TODO", "...") | QA |
-| Level JSON missing `difficulty` field | QA |
-| Sound implemented with audio files instead of Web Audio API synthesis | QA |
-| Undo stack not wired to `Ctrl/Cmd+Z` keyboard shortcut | QA |
-| Interactive element missing `data-testid` attribute | QA — blocks Playwright tests |
-| Playwright test using pixel-coordinate `page.click('canvas', {position:{x,y}})` | QA — brittle, banned |
-| PR body missing `browser_screenshot` evidence | QA |
-| PR opened without running `npm run test:e2e` locally | QA |
+---
 
 ## Files Agents Must Not Modify
 
@@ -284,144 +456,3 @@ All issues must have labels from each of these groups:
 - `AGENTS.md`
 - `.specify/memory/constitution.md`
 - `.specify/memory/sdlc.md`
-
----
-
-## E2E Testing — MANDATORY
-
-This is a browser game. Unit tests alone do not prove it works. **Every feature that affects the browser must be covered by a Playwright e2e test AND verified visually using the OpenCode browser extension before a PR is opened.**
-
-### Two-tool approach
-
-| Tool | When to use | What it proves |
-|---|---|---|
-| **Playwright** (`npm run test:e2e`) | CI-automated, runs on every PR | The game logic, DOM state, and interaction flow work correctly in a headless browser |
-| **OpenCode browser extension** | During development, before pushing | The game actually looks correct — visuals, animations, timing, canvas rendering |
-
-**Neither tool alone is sufficient.** Playwright cannot see the canvas pixel output. The browser extension cannot run in CI. Use both.
-
-### Playwright setup
-
-Playwright is installed as a dev dependency (`@playwright/test`). Browsers are installed with `npx playwright install chromium`.
-
-```bash
-npm run dev &            # start Vite dev server (required for e2e tests)
-npm run test:e2e         # run all Playwright tests against http://localhost:5173
-npx playwright test --headed  # run with visible browser (useful during development)
-npx playwright test tests/e2e/level1.spec.ts  # run a single spec
-```
-
-`playwright.config.ts` targets `http://localhost:5173` (Vite dev server) for local runs and `https://pnz1990.github.io/alibi/` for the `--project=production` run.
-
-### Playwright test contracts
-
-Every e2e test must use **data-testid attributes** on DOM elements for selectors. The canvas alone is not sufficient — wrap interactive elements and status indicators in overlay HTML elements with `data-testid`. Required `data-testid` values:
-
-| Element | `data-testid` |
-|---|---|
-| Canvas element | `game-canvas` |
-| Radial menu container | `radial-menu` |
-| Each suspect option in radial menu | `suspect-option-[A-H]` |
-| Clear option in radial menu | `suspect-option-clear` |
-| Each clue row in sidebar | `clue-[id]` (e.g. `clue-c1`) |
-| Satisfied clue (has strikethrough) | add class `clue-satisfied` |
-| Unsatisfied clue flashing | add class `clue-error` |
-| Victim cell highlight overlay | `victim-cell` |
-| GUILTY stamp element | `guilty-stamp` |
-| Undo button | `btn-undo` |
-| Redo button | `btn-redo` |
-| Mute button | `btn-mute` |
-| Share/copy button | `btn-share` |
-| How-to-play button | `btn-help` |
-| How-to-play modal | `overlay-howtoplay` |
-| Level select screen | `level-select` |
-| Level card (each) | `level-card-[id]` (e.g. `level-card-001`) |
-| "Something doesn't add up" message | `msg-clue-gate` |
-| Narrative intro screen | `narrative-intro` |
-| Resume prompt | `prompt-resume` |
-
-**Anti-pattern**: `page.click('canvas')` with pixel coordinates. This is brittle and unmaintainable. Use `data-testid` on overlay elements for all interaction.
-
-### Playwright test pattern for a level playthrough
-
-Each level has a known solution (from `docs/level-designs.md`). Tests use the solution directly:
-
-```typescript
-// tests/e2e/level1.spec.ts
-import { test, expect } from '@playwright/test';
-import level1 from '../../src/levels/001-speakeasy.json';
-
-test('Level 1 — full playthrough reaches GUILTY screen', async ({ page }) => {
-  await page.goto('/');
-  await page.click('[data-testid="level-card-001"]');
-  await page.click('[data-testid="narrative-intro"] button'); // dismiss intro
-
-  // Place each suspect at solution position
-  for (const [suspectId, pos] of Object.entries(level1.solution)) {
-    if (suspectId === 'victim') continue;
-    await page.click(`[data-testid="cell-${pos.x}-${pos.y}"]`);
-    await page.click(`[data-testid="suspect-option-${suspectId}"]`);
-  }
-
-  // All clues should be satisfied
-  for (const clue of level1.clues) {
-    await expect(page.locator(`[data-testid="clue-${clue.id}"]`))
-      .toHaveClass(/clue-satisfied/);
-  }
-
-  // Click victim cell
-  await page.click(`[data-testid="victim-cell"]`);
-
-  // GUILTY stamp must appear
-  await expect(page.locator('[data-testid="guilty-stamp"]')).toBeVisible();
-  await expect(page.locator('[data-testid="guilty-stamp"]')).toContainText('Elias');
-});
-```
-
-Each cell must also have `data-testid="cell-{x}-{y}"` on its overlay element (not the canvas).
-
-### Using the OpenCode browser extension during development
-
-Before opening a PR, the engineer MUST use the browser extension to verify visually:
-
-1. Start the dev server: `npm run dev`
-2. Open `http://localhost:5173` in the browser connected to OpenCode
-3. Use `browser_screenshot` to capture the current state
-4. Use `browser_click` on `[data-testid]` selectors to interact
-5. Use `browser_query` to read DOM state (clue satisfaction, game state)
-6. Use `browser_console` to check for JS errors
-7. Use `browser_errors` to verify zero JS errors after each interaction
-
-**Minimum browser extension verification checklist before every PR:**
-
-```
-[ ] browser_screenshot after page load — grid renders, no blank canvas
-[ ] browser_screenshot after placing suspect A — shadow visible on row + col
-[ ] browser_screenshot after placing all 8 suspects — victim cell highlighted
-[ ] browser_screenshot after clicking victim cell with unsatisfied clues — error state visible
-[ ] browser_screenshot after correct solution + victim click — GUILTY stamp visible
-[ ] browser_errors — zero JS errors throughout
-[ ] browser_console — no warnings about missing assets or unhandled promises
-```
-
-The engineer must paste at least one `browser_screenshot` into the PR body as visual evidence.
-
-### CI integration
-
-`npm run test:e2e` runs in GitHub Actions on every PR using:
-```yaml
-- run: npm run build
-- run: npm run dev &
-- run: npx playwright install chromium --with-deps
-- run: npm run test:e2e
-```
-
-The CI does NOT use the browser extension (that requires a desktop session). CI uses headless Playwright only.
-
-### QA checklist additions (browser-specific)
-
-QA must verify on every PR that touches rendering, input, or game state:
-- [ ] All required `data-testid` attributes are present in the DOM
-- [ ] Playwright e2e tests pass in CI (`npm run test:e2e` green)
-- [ ] PR body contains at least one `browser_screenshot` showing the feature working
-- [ ] `browser_errors` output in PR body shows zero JS errors

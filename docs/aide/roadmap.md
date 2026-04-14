@@ -4,124 +4,111 @@
 
 ---
 
-## Current Gate: Stage 0 must ship before any level content
+## Current Gate: Engine + Generator must exist before any theme or rendering work
 
-The game skeleton (canvas, grid, logic engine, CI, GitHub Pages deploy) must exist and be deployable before level content is authored. Authoring levels against a broken engine wastes effort.
+The generator must be able to produce valid, unique-solution puzzles in isolation (no browser, no sprites) before any rendering or theme work begins.
 
 ---
 
 ## Stage 0: Project Skeleton & Toolchain
 
-**Goal:** Working Vite + TypeScript project that renders an empty 9×9 grid on canvas, deployed to GitHub Pages via CI. Playwright wired and green.
+**Goal:** Working Vite + TypeScript project, CI green, Playwright wired, GitHub Pages deploy.
 
 ### Deliverables
-- `package.json` with Vite + TypeScript + Vitest + ESLint (`@typescript-eslint/recommended`) + `@playwright/test` configured
+- `package.json`: Vite + TypeScript + Vitest + ESLint + `@playwright/test`
 - `index.html` + `src/main.ts` entry point
-- Canvas renderer draws a 9×9 grid at 2× pixel scale; `[data-testid="game-canvas"]` on the canvas element
+- Canvas element renders with `data-testid="game-canvas"`
 - `npm run build`, `npm test`, `npm run lint`, `npm run test:e2e` all exit 0
-- `playwright.config.ts` targeting `http://localhost:5173` (dev) and `https://pnz1990.github.io/alibi/` (production project)
-- `tests/e2e/smoke.spec.ts` — Playwright smoke test: page loads, `[data-testid="game-canvas"]` visible, zero JS errors
+- `playwright.config.ts` targeting `http://localhost:5173`
+- `tests/e2e/smoke.spec.ts`: page loads, canvas visible, zero JS errors
 - GitHub Actions CI: build + unit test + lint + Playwright e2e on every PR
-- GitHub Pages deploy workflow (`gh-pages` branch on merge to main)
-- `npx playwright install chromium --with-deps` in CI setup step
+- GitHub Pages deploy workflow on merge to main
+- `npx playwright install chromium --with-deps` in CI
 
 ### Dependencies
 None
 
 ---
 
-## Stage 1: Core Logic Engine
+## Stage 1: Core Engine (pure functions, no DOM)
 
-**Goal:** The three-layer logic engine (Rule of One, Spatial Mask, Testimony) is fully implemented and unit-tested, independent of rendering.
+**Goal:** All game logic implemented and unit-tested. The generator produces valid unique-solution puzzles for a stubbed theme.
 
 ### Deliverables
-- `src/engine/grid.ts` — 9×9 grid model with tile types (Floor/Solid/Seat) and room zones
-- `src/engine/logic.ts` — Rule of One validator, Spatial Mask filter, win condition detector (single remaining valid cell)
-- `src/engine/clues.ts` — All 12 clue type evaluators: `fixedPosition`, `isBeside`, `isNotBeside`, `isInRoom`, `isNotInRoom`, `isInSameRoom`, `isInDifferentRoom`, `isInSameRow`, `isInSameCol`, `isFarFrom`, `isNorthOf`, `isSouthOf` — see `docs/level-format.md` for full definitions
-- `src/engine/solver.ts` — Constraint solver that verifies a level JSON has exactly one solution
-- Full Vitest coverage on all engine functions (>90% line coverage)
-- Level JSON schema documented in `docs/level-format.md`
+- `src/engine/grid.ts` — 6×6 grid model: tile types, zones, object placement
+- `src/engine/logic.ts` — Rule of One, spatial mask, win condition, victim cell derivation
+- `src/engine/clues.ts` — All 14 clue type evaluators (pure functions; see AGENTS.md)
+- `src/engine/solver.ts` — Constraint solver: counts valid solutions for a given puzzle + clue set. Must return exactly 1 for a valid puzzle.
+- `src/engine/generator.ts` — Seeded PRNG procedural generator: place suspects (Latin square), place objects, generate clues, call solver to verify uniqueness, retry up to 20 times, throw on failure
+- `src/themes/index.ts` — Theme registry interface + stub theme for testing
+- `window.__alibi_puzzle` exposed in DEV/TEST builds
+- Vitest: >90% line coverage on all `src/engine/` files
+- Generator test: 1000 different seeds all produce unique-solution puzzles (no timeout in CI)
 
 ### Dependencies
 Stage 0
 
 ---
 
-## Stage 2: Rendering, Input & Core UX
+## Stage 2: Coffee Shop Theme + Rendering
 
-**Goal:** The game is fully playable for a single level with all professional-quality UX: undo, Web Audio sounds, how-to-play, narrative, progress save, and share card.
+**Goal:** One complete playable theme rendered in the browser. Full UX: placement, shadows, clue satisfaction, undo, sound, narrative, save, share, how-to-play.
 
 ### Deliverables
-- `src/render/canvas.ts` — Tile grid renderer with Floor/Solid/Seat visual distinction; every interactive overlay element has `data-testid` per AGENTS.md §E2E Testing
-- `src/render/sprites.ts` — Suspect tokens A–H and victim as placeholder 16×16 colored rectangles with initials; falls back to placeholder if sprite file absent
-- `src/render/ui.ts` — Sidebar: suspect list, alibi text, strikethrough on satisfied clues
-- `src/render/overlay.ts` — How-to-play modal (4 slides). Shown on first visit (localStorage flag), accessible via "?" button. Keyboard-dismissable (Escape).
-- `src/game/input.ts` — Click-to-place radial menu (8 suspects + clear); keyboard navigation: arrow keys move cursor, Enter opens menu, Escape closes menu
-- `src/game/undo.ts` — Undo/redo stack (max 50). `Ctrl/Cmd+Z` undo, `Ctrl/Cmd+Shift+Z` redo. Undo button in sidebar. Reset on level start.
-- `src/game/sound.ts` — Web Audio API: place, clear, clue-satisfied, blocked, guilty-stamp, victim-reveal. Mute toggle (🔇) persists to localStorage. No audio files — all sounds synthesized.
-- `src/game/save.ts` — Auto-save placements to localStorage (`alibi_progress_<level-id>`). Restore on level load with "Resume?" prompt. Cleared on completion or reset.
-- `src/game/share.ts` — Completion card text generator (level name, time, killer, URL). "Copy result" button.
-- `src/game/state.ts` — State machine: `idle → narrative → placing → solved → reveal → accusation → end`
-- Shadow effect: placing a suspect draws semi-transparent overlay over entire row + column
-- Win sequence: narrative victim-found text → victim-reveal sound → "GUILTY" stamp → share card shown
-- `tests/e2e/placement.spec.ts` — wall blocking, Rule of One blocking, clue gate, clear action
-- `tests/e2e/undo.spec.ts` — undo/redo keyboard shortcuts and button
-- `tests/e2e/save.spec.ts` — localStorage auto-save and resume
-- `tests/e2e/share.spec.ts` — completion card copy-to-clipboard
-- All Playwright e2e tests for Stage 2 pass (`npm run test:e2e` exits 0)
+- `src/themes/coffee-shop.ts` — complete theme module: floor plan, zones (Bar, Main Area, Restroom), object catalog, suspect name set (12 names), victim names, narrative templates, color palette, sprite map
+- `src/render/canvas.ts` — tile renderer: floor/wall/zone colors from theme palette; furniture objects rendered as SVG sprites (fallback to labeled rectangle if SVG missing)
+- `src/render/sprites.ts` — SVG bundled sprite loader (Vite `?raw` import)
+- `src/render/portraits.ts` — suspect portrait card SVGs (fallback to colored initial rectangle)
+- `src/render/ui.ts` — sidebar: suspect list, 6–8 clue cards, strikethrough on `clue-satisfied`, flash on `clue-error`
+- `src/render/overlay.ts` — narrative intro, how-to-play modal (4 slides), share card, resume prompt
+- `src/game/state.ts` — state machine: `idle → narrative → placing → solved → reveal → guilty → end`
+- `src/game/input.ts` — click → radial menu → placement; keyboard arrow/Enter/Escape nav; blocked row/col flash
+- `src/game/undo.ts` — undo/redo stack; `Ctrl/Cmd+Z`; undo button (`btn-undo`)
+- `src/game/sound.ts` — Web Audio API synthesis: 6 events. Mute toggle (`btn-mute`).
+- `src/game/save.ts` — auto-save by seed+theme to localStorage; resume prompt on reload
+- `src/game/share.ts` — completion card; `btn-share` copies to clipboard
+- Theme selector (`theme-select`) and "New Puzzle" button (`btn-new-puzzle`)
+- URL hash: `#theme=coffee-shop&seed=<N>`
+- All `data-testid` attributes per AGENTS.md present
+- `tests/e2e/gameplay.spec.ts` — full playthrough using `window.__alibi_puzzle`
+- `tests/e2e/undo.spec.ts`, `save.spec.ts`, `share.spec.ts`
+- `npm run test:e2e` exits 0; PR body contains browser_screenshot evidence
 
 ### Dependencies
 Stage 1
 
 ---
 
-## Stage 3: Level 1 — The Speakeasy
+## Stage 3: Remaining 3 Themes
 
-**Goal:** First complete, fully playable level with real pixel-art assets and a verified unique-solution clue set.
+**Goal:** All 4 themes playable. Theme selector works. Each theme has its own floor plan, sprites, name set, and narrative templates.
 
 ### Deliverables
-- `src/levels/001-speakeasy.json` — complete level definition including `narrative`, `difficulty: "easy"` (see `docs/level-designs.md` for the authoritative design)
-- Level passes constraint solver (`npm run verify-levels`)
-- Placeholder sprite rendering: 16×16 colored rectangles. Real pixel art NOT required for v1.0.
-- `tests/e2e/level1.spec.ts` — full Playwright playthrough using the known solution from level JSON; GUILTY stamp must name Elias
-- Journey 3 and 4 pass: `npm run test:e2e` green AND `browser_screenshot` evidence in PR body
+- `src/themes/bookstore.ts` — Crime Novels, Non-Fiction, Romance Novels, Best Sellers, Checkout zones
+- `src/themes/backyard.ts` — Backyard, Jacuzzi, Deck, Bedroom, Living Room, Kitchen zones
+- `src/themes/holiday-shopping.ts` — Electronics, Santa's Village, Toy Store, Walkway, Coffee Shop zones
+- SVG sprites for all furniture types used by new themes (or confirmed fallback to placeholder)
+- Portrait SVGs for all new name sets (or confirmed fallback)
+- Theme selector shows all 4 themes with names and preview colors
+- `tests/e2e/gameplay.spec.ts` parameterized across all 4 themes
+- Generator tests: 250 seeds × 4 themes all produce unique-solution puzzles
 
 ### Dependencies
 Stage 2
 
 ---
 
-## Stage 4: Levels 2–4 (Remaining Themes)
+## Stage 4: Polish & v1.0 Release
 
-**Goal:** Four complete levels, one per theme. Full game is playable start to finish.
+**Goal:** v1.0 shipped to `https://pnz1990.github.io/alibi/`. Fully self-explanatory.
 
 ### Deliverables
-- `src/levels/002-luxury-liner.json` — difficulty: "medium" (see `docs/level-designs.md`)
-- `src/levels/003-art-gallery.json` — difficulty: "medium" (see `docs/level-designs.md`)
-- `src/levels/004-greenhouse.json` — difficulty: "hard" (see `docs/level-designs.md`)
-- Each level has `narrative` (intro, victim_found, guilty_text), `difficulty` rating
-- Theme flat-color palettes per level (no bitmapped artwork required)
-- Each level passes constraint solver (`npm run verify-levels`)
-- Level select screen showing title, theme, and difficulty stars (1–3); `[data-testid="level-card-{id}"]` on each card
-- `tests/e2e/level2.spec.ts`, `level3.spec.ts`, `level4.spec.ts` — full playthroughs with correct killer names
-- Journey 5 passes: `npm run test:e2e` green (all level specs) AND `browser_screenshot` evidence of all 4 GUILTY stamps in PR body
+- Pixel/bitmap font for all UI text (bundled as data URI)
+- Mobile-responsive layout (landscape phone, touch-friendly radial menu)
+- Lighthouse performance ≥ 80, load < 3s
+- All 5 definition-of-done journeys ✅ in CI against production URL
+- GitHub release `v1.0.0` with changelog
+- `README.md` with live screenshot and play link
 
 ### Dependencies
 Stage 3
-
----
-
-## Stage 5: Polish & v1.0 Release
-
-**Goal:** v1.0 shipped to `https://pnz1990.github.io/alibi/`. Game is self-explanatory to new players.
-
-### Deliverables
-- Pixel font for all UI text (bitmap font, bundled as data URI — no external file)
-- Mobile-responsive layout (playable on phone, landscape orientation; touch-friendly radial menu)
-- `<3s` load time (Lighthouse performance ≥ 80)
-- GitHub release `v1.0.0` with changelog
-- `README.md` with screenshot and play link
-- All 5 definition-of-done journeys ✅ verified: `npm run test:e2e` green against production URL (`https://pnz1990.github.io/alibi/`)
-
-### Dependencies
-Stage 4

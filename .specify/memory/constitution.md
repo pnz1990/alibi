@@ -1,28 +1,26 @@
 # ALIBI Constitution
 
-**Version**: 1.0.0 | **Ratified**: 2026-04-14 | **Last Amended**: 2026-04-14
+**Version**: 2.0.0 | **Ratified**: 2026-04-14 | **Last Amended**: 2026-04-14
 
-This document governs agent behavior on the ALIBI project. It supersedes all other guidance when there is a conflict.
+This document governs all agent behavior. It supersedes all other guidance.
 
 ---
 
 ## I. The Game Is The Product (NON-NEGOTIABLE)
 
-ALIBI is a browser game. The measure of every item is: does the game play correctly in a real browser?
+ALIBI is a browser game. The measure of every item is: does the game play correctly and enjoyably in a real browser?
 
-Unit tests are necessary but not sufficient. Every feature that affects the player experience MUST be verified end-to-end using Playwright (npm run test:e2e) AND the OpenCode browser extension (browser_screenshot, browser_click, browser_errors). See AGENTS.md §E2E Testing for the full protocol.
-
-A PR that passes unit tests but has never been run in a browser is not done.
+Unit tests are necessary but not sufficient. Every feature affecting the player experience MUST be verified with Playwright (`npm run test:e2e`) AND the OpenCode browser extension (`browser_screenshot`, `browser_errors`). A PR that passes unit tests but has never run in a browser is not done.
 
 ---
 
 ## II. Pure Engine, Side-Effectful Shell
 
-All game logic (grid model, Rule of One, spatial mask, clue evaluation, win condition, solver) lives in src/engine/ as pure functions with zero side effects. These functions take data, return data. They have no knowledge of the DOM, canvas, localStorage, or audio.
+`src/engine/` contains only pure functions. No DOM, no canvas, no localStorage, no audio. These functions take data and return data.
 
-All side effects (rendering, input, sound, save, share) live in src/render/ and src/game/. They call the engine; the engine never calls them back.
+`src/render/` and `src/game/` contain all side effects. They call the engine. The engine never calls them back.
 
-Violating this boundary is the single most common failure mode in game code. Re-read AGENTS.md §Anti-Patterns before every PR.
+This boundary is the most important architectural rule. Violating it makes the engine untestable, the renderer fragile, and the generator unpredictable. Re-read AGENTS.md §Anti-Patterns before every PR.
 
 ---
 
@@ -30,30 +28,36 @@ Violating this boundary is the single most common failure mode in game code. Re-
 
 Implementation order: failing test → passing code → refactor. Always.
 
-For engine code: write a Vitest unit test first.
-For render/game code: write a Playwright e2e test first (or add assertions to an existing spec).
-No code is merged without a test that would catch a regression in that exact behavior.
+Engine code: Vitest unit test first.
+Render/game code: Playwright e2e test first (or assertions added to existing spec).
+No code is merged without a test that would catch a regression.
 
 ---
 
-## IV. Zero Runtime Dependencies
+## IV. Zero Runtime NPM Dependencies
 
-The production bundle contains zero npm packages not authored for this project. Vite, Vitest, Playwright, ESLint, TypeScript are build/dev tools — they do not appear in the bundle. Adding a runtime dependency requires a [NEEDS HUMAN] escalation. It will not be approved for v1.0.
+The production bundle imports no npm packages not authored for this project. Vite, Vitest, Playwright, ESLint, TypeScript are build/dev tools only.
+
+**Exception**: SVG sprite assets are bundled via Vite's `?raw` import mechanism. This is not an npm runtime dependency — it is a static asset bundling pattern. It is explicitly permitted.
+
+Adding any npm package to the runtime bundle requires `[NEEDS HUMAN]` escalation. It will not be approved for v1.0.
 
 ---
 
 ## V. data-testid Is An API Contract
 
-Every interactive and observable DOM element must have a data-testid attribute matching the table in AGENTS.md §E2E Testing. These are part of the public contract between the render layer and the test layer. Removing or renaming a data-testid without updating the Playwright spec is a breaking change and will fail CI.
+Every interactive and observable DOM element has a `data-testid` per AGENTS.md §E2E Testing. Removing or renaming one without updating the Playwright spec is a breaking change.
 
 ---
 
-## VI. Level JSON Is Ground Truth
+## VI. The Generator Is The Source of Truth
 
-The solution, clues, zones, and narrative in each level JSON file are the authoritative source of truth. The engine validates against the JSON; it never hard-codes level knowledge. The solver (npm run verify-levels) must confirm a unique solution before any level JSON is merged.
+There are no static levels. All puzzle content comes from `src/engine/generator.ts` given a seed and a theme. The solver must confirm exactly 1 solution before any puzzle reaches the player. A puzzle with 0 or 2+ solutions is a critical bug — the generator must retry or throw, never silently deliver a broken puzzle.
+
+`window.__alibi_puzzle` is exposed in DEV/TEST builds so Playwright tests can read solutions dynamically. This must never be removed or conditionally disabled during testing.
 
 ---
 
 ## VII. Escalate, Never Workaround
 
-If a requirement cannot be implemented as specified: post [NEEDS HUMAN] with the exact question. Do not simplify the requirement, defer it, or implement a workaround that violates the constitution.
+If a requirement cannot be implemented as specified: post `[NEEDS HUMAN]` with the exact question and file:line reference. Never simplify a requirement unilaterally, defer it silently, or implement a workaround that violates this constitution.

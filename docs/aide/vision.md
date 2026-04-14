@@ -5,37 +5,50 @@
 
 ## Immediate Goal
 
-Build and deploy a playable v1.0 of ALIBI on GitHub Pages. The game must support at least 4 complete levels across 4 themes, be fully playable on desktop browsers, and load in under 3 seconds on a standard connection. No backend. No accounts. No install.
+Build and deploy a fully playable, infinitely replayable ALIBI on GitHub Pages. The game procedurally generates a unique puzzle on every play — no two games are the same. Static hosting, no backend, no accounts.
 
 ## Project Overview
 
-ALIBI is a browser-based logic-deduction puzzle game set in a noir pixel-art world. Players act as detectives who must place 8 suspects on a 9×9 grid by satisfying a set of textual "alibis" (clues) while obeying Sudoku-like row/column exclusion rules. When all suspects are placed correctly, a single cell remains — the victim's location — and the suspect sharing that room is the killer.
+ALIBI is a browser-based murder mystery logic-deduction game, directly inspired by the book **Murdoku** by Manuel Garand. The player places suspects on a top-down illustrated floor plan by satisfying witness "alibis." When all suspects are correctly placed, one empty cell remains — the victim's location — and the killer is identified.
 
-It is an online replica of the board game Murdoku, reimagined as a zero-dependency static web game hosted on GitHub Pages.
+The core mechanic: **Sudoku row/column exclusion + spatial room constraints + natural-language clues that triangulate exact positions.**
+
+Every game is procedurally generated from a **theme template** — a named setting (Coffee Shop, Bookstore, Backyard, etc.) with a fixed floor plan, furniture sprites, and narrative flavor. The generator places suspects, assigns clues that uniquely identify the solution, and produces a playable puzzle. Players get a fresh solvable mystery every time. The same seed always reproduces the same puzzle (shareable).
 
 ### Why this project exists
 
-Murdoku is a physical board game with compelling logic mechanics but no digital version. Browser puzzle games like Sudoku, Nonogram, and Wordle prove that constraint-satisfaction puzzles with clean UIs achieve massive reach with zero infrastructure cost. ALIBI fills this gap with a noir aesthetic that sets it apart from clean/minimal puzzle game aesthetics.
+Murdoku has no digital version. Its book format limits it to 80 static puzzles. Procedural generation gives it infinite replayability. The everyday-setting aesthetic — Coffee Shop, Backyard, Mall — is more approachable than noir, appealing to NYT Games fans and puzzle fans broadly.
 
 ### Key design decisions
 
-1. **Static only** — no server, no API, no accounts. Deployable to GitHub Pages from a single `npm run build`. This is a hard constraint.
-2. **Canvas rendering** — pixel art requires integer-scale blitting. HTML5 Canvas 2D, not DOM or CSS. No WebGL.
-3. **Logic is pure TypeScript** — the engine (grid, clue evaluation, win detection) has no side effects and is fully unit-testable without a browser.
-4. **Levels are JSON** — each level is a self-contained JSON file. Adding a new level requires no code change. A constraint solver verifies each level has exactly one solution before merge.
-5. **Zero runtime npm dependencies** — the production bundle contains only code written for this project. Vite is a dev/build tool, not a runtime dependency.
+1. **6×6 grid.** The Murdoku book uses 6×6 with 6–10 suspects. This is the correct scale — tractable for generation, solvable in 5–15 minutes.
 
-## Release and Versioning Philosophy
+2. **Procedural generation, seeded.** A seeded PRNG generates suspect placement, object placement, and clue set. Seed in URL hash enables sharing. "New Puzzle" gives infinite content.
 
-- `v0.x` — pre-release iterations. Breaking changes allowed. Game may be incomplete.
-- `v1.0` — first public release. Must pass all 5 definition-of-done journeys. Deployed to `https://pnz1990.github.io/alibi/`.
-- Patch releases (`v1.0.x`) for bug fixes. Minor releases (`v1.x`) for new level packs or themes.
+3. **Theme templates provide setting; generator fills puzzle.** A theme defines: floor plan shape, room names, furniture sprite catalog, tile occupancy rules, narrative templates, suspect name set. The generator works within a theme's constraints.
 
-## Workshop / Demo Benchmarks
+4. **Real illustrated furniture sprites.** Plants, chairs, shelves, cash registers, beds — recognizable SVG icons bundled with the app. No runtime fetch. These are a necessary bundled asset dependency — the zero-deps rule applies to npm runtime packages, not to bundled SVG assets.
 
-The game is considered "working" when a non-technical person can:
-1. Open `https://pnz1990.github.io/alibi/` on a desktop browser with no instructions.
-2. Select Level 1 (The Speakeasy).
-3. Read the alibis, place all 8 suspects, click the victim cell, and see the "GUILTY" stamp — without reading documentation.
+5. **Natural-language clues.** "He was beside a table." "She was in the fifth column." "He was not beside a plant." The generator produces these from templates after computing the solution.
 
-This is the acceptance target. Any friction in that path is a defect.
+6. **Static GitHub Pages.** No server, no API. Seed in URL hash. Everything in the browser.
+
+## Themes (v1.0 — 4 themes)
+
+Each theme is a TypeScript module: floor plan config + SVG sprite catalog + narrative templates + suspect name set.
+
+| Theme | Setting | Key rooms | Key furniture |
+|---|---|---|---|
+| **Coffee Shop** | Urban café | Bar, Main Area, Restroom | Chair, plant, cash register, table |
+| **The Bookstore** | Local bookshop | Crime Novels, Non-Fiction, Romance Novels, Best Sellers, Checkout | Shelf, table, cash register |
+| **Backyard** | Suburban home | Backyard, Jacuzzi, Deck, Bedroom, Living Room, Kitchen | Plant, chair, bed, sofa |
+| **Holiday Shopping** | Christmas mall | Electronics, Santa's Village, Toy Store, Walkway, Coffee Shop | Shelf, register, tree, chair |
+
+## Release Philosophy
+
+- `v1.0` — 4 themes, infinite procedural generation, shareable seeds, desktop.
+- `v1.1` — additional themes, mobile polish, daily challenge (fixed daily seed).
+
+## Demo Benchmark
+
+A new player opens the URL. They see an illustrated floor plan, portrait suspect cards, natural-language clue cards. They place suspects, check off clues, click the last cell, see "GUILTY." They click "New Puzzle" and get a different puzzle. No instructions needed.
