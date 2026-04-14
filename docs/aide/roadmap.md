@@ -39,11 +39,12 @@ None
 - `src/engine/logic.ts` — Rule of One, spatial mask, win condition, victim cell derivation
 - `src/engine/clues.ts` — All 14 clue type evaluators (pure functions; see AGENTS.md)
 - `src/engine/solver.ts` — Constraint solver: counts valid solutions for a given puzzle + clue set. Must return exactly 1 for a valid puzzle.
-- `src/engine/generator.ts` — Seeded PRNG procedural generator: place suspects (Latin square), place objects, generate clues, call solver to verify uniqueness, retry up to 20 times, throw on failure
-- `src/themes/index.ts` — Theme registry interface + stub theme for testing
+- `src/engine/generator.ts` — seeded PRNG generator: derives validCols/validRows from floor plan, places suspects (Latin square backtracking), derives victim cell, generates varied clue set, calls solver, retries on failure
+- `src/themes/index.ts` — Theme registry interface + stub theme for testing (minimal 4×4 grid, 2 rooms)
 - `window.__alibi_puzzle` exposed in DEV/TEST builds
 - Vitest: >90% line coverage on all `src/engine/` files
-- Generator test: 1000 different seeds all produce unique-solution puzzles (no timeout in CI)
+- Generator test: 1000 different seeds on stub theme → all produce unique-solution puzzles, no timeout in CI
+- Generator test: irregular floor plan (L-shaped rooms, wall columns, object rows) → still produces valid puzzles
 
 ### Dependencies
 Stage 0
@@ -84,14 +85,15 @@ Stage 1
 **Goal:** All 4 themes playable. Theme selector works. Each theme has its own floor plan, sprites, name set, and narrative templates.
 
 ### Deliverables
-- `src/themes/bookstore.ts` — Crime Novels, Non-Fiction, Romance Novels, Best Sellers, Checkout zones
-- `src/themes/backyard.ts` — Backyard, Jacuzzi, Deck, Bedroom, Living Room, Kitchen zones
-- `src/themes/holiday-shopping.ts` — Electronics, Santa's Village, Toy Store, Walkway, Coffee Shop zones
-- SVG sprites for all furniture types used by new themes (or confirmed fallback to placeholder)
+- `src/themes/bookstore.ts` — **5×5 irregular** — rooms: Crime Novels (top-left L-shape), Non-Fiction (center), Romance Novels (right strip), Best Sellers (bottom-left), Checkout (bottom-right narrow)
+- `src/themes/backyard.ts` — **6×6 asymmetric** — rooms: Backyard (large open 3×3), Jacuzzi (2×2 corner), Deck (1×2 strip), Bedroom (2×3 bottom-left), Living Room (3×3 bottom-center), Kitchen (2×2 bottom-right)
+- `src/themes/holiday-shopping.ts` — **8×7 large mall** — rooms: Electronics (left mid), Santa's Village (center large), Santa's Lodge (top-right small), Bookstore (right strip), Toy Store (bottom-left large), Walkway (wide horizontal corridor), Coffee Shop (bottom-right)
+- Each theme has genuinely different W×H dimensions and irregular room shapes
+- SVG sprites for all new furniture types (or confirmed fallback to placeholder)
 - Portrait SVGs for all new name sets (or confirmed fallback)
 - Theme selector shows all 4 themes with names and preview colors
+- Generator tests: 250 seeds × 4 themes — all unique-solution puzzles; tests pass despite different grid sizes
 - `tests/e2e/gameplay.spec.ts` parameterized across all 4 themes
-- Generator tests: 250 seeds × 4 themes all produce unique-solution puzzles
 
 ### Dependencies
 Stage 2

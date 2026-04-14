@@ -69,12 +69,12 @@ Seed (PRNG)
             → Win condition check
 ```
 
-**Grid**: 6×6. Columns 1–6 (x=0–5, left to right). Rows 1–6 (y=0–5, top to bottom).
+**Grid**: Variable size per theme — width W (3–10), height H (3–10). Not necessarily square. Columns 1–W (x=0–W-1, left to right). Rows 1–H (y=0–H-1, top to bottom). The bounding rectangle is fixed per theme; rooms within it are arbitrary polygons defined by which cells belong to them.
 **North = smaller y. South = larger y.**
 
-**Suspects**: 6–8 per puzzle, drawn from the theme's name set.
-**Victim**: Always the last remaining empty cell after all suspects are placed.
-**Killer**: The suspect whose cell shares a Room Zone with the victim's cell.
+**Suspects**: Equal to the number of columns W (one per column, one per row = Latin square). Typically 5–9.
+**Victim**: Always the last remaining empty valid cell after all suspects are placed.
+**Killer**: The suspect whose placed cell shares a Room Zone with the victim's cell.
 
 ---
 
@@ -83,7 +83,7 @@ Seed (PRNG)
 ```
 src/
   engine/
-    grid.ts           # 6×6 grid model: tile types, zones, object placement
+    grid.ts           # Variable W×H grid model: tile types, zones, object placement
     logic.ts          # Rule of One, spatial mask, win condition
     clues.ts          # All clue type evaluators — pure functions
     generator.ts      # Procedural puzzle generator (seeded PRNG)
@@ -144,27 +144,54 @@ package.json
 
 ### Grid
 
-- **6×6 cells.** Column 1–6 (x=0–5), Row 1–6 (y=0–5).
-- **North = smaller y (up on screen). South = larger y.**
+The grid is **variable in size and shape** per theme. Each theme defines a bounding rectangle of W columns × H rows (W and H both in range 4–10, not necessarily equal). Rooms are arbitrary contiguous polygons within that bounding box — they are defined by listing which cells belong to them, not by rectangular bounds. A cell outside all rooms is a `wall` (impassable, unplaceable).
+
+- **W × H cells**, where W and H are defined by the theme's `floorPlan`. Typical sizes: 5×5, 6×6, 6×7, 7×8.
+- **Columns 1–W** (x = 0 to W-1, left to right).
+- **Rows 1–H** (y = 0 to H-1, top to bottom).
+- **North = smaller y (up on screen). South = larger y (down on screen).**
+- The Rule of One spans the **full grid width/height** regardless of room shape — a suspect in any cell blocks their entire row and entire column across the whole bounding rectangle.
 - Each cell has exactly one tile type:
   - `floor` — walkable, placeable
-  - `wall` — impassable, not placeable
+  - `wall` — impassable, not placeable (cell outside any room, or interior partition)
   - `chair` / `sofa` / `bed` — seat tile, placeable (suspect can sit here)
-  - `object` — furniture object (plant, shelf, table, cash register, etc.) — NOT placeable, but usable as landmark in clues. Has a `objectType` string (e.g. "plant", "table", "shelf").
-- Each non-wall cell belongs to exactly one **Room Zone** (e.g. "Bar", "Main Area").
-- `isBeside(A, B)` = Moore neighbourhood: `max(abs(dx), abs(dy)) <= 1` (includes diagonals).
-- `isBeside(A, objectType)` = A is beside any cell of that object type.
+  - `object` — furniture object (plant, shelf, table, cash register, etc.) — NOT placeable, but usable as landmark in clues. Has an `objectType` string (e.g. `"plant"`, `"table"`, `"shelf"`).
+- Each non-wall cell belongs to exactly one **Room Zone** (e.g. `"Bar"`, `"Main Area"`).
+- Rooms are defined as a list of `{x, y}` cells — they can be any connected shape: L-shapes, corridors, single-cell rooms, large open areas. There is no requirement that rooms be rectangular.
+- `isBeside(A, B)` = Moore neighbourhood: `max(abs(dx), abs(dy)) <= 1` (8 surrounding cells including diagonals).
+- `isBeside(A, objectType)` = A is beside any cell containing an object of that type.
+
+**Suspect count** = W (number of columns). One suspect per column and one per row (Latin square constraint). Typical: 5–8 suspects.
+
+### Theme floor plan variability
+
+Different themes produce grids that look and feel genuinely different:
+
+| Theme | Approx size | Shape character |
+|---|---|---|
+| Coffee Shop | 4×5 | L-shaped with small Restroom corner |
+| Bookstore | 5×5 | Irregular quadrants, Checkout is a narrow strip |
+| Backyard | 6×6 | Asymmetric — Jacuzzi/Deck are small, Backyard is large open |
+| Holiday Shopping | 8×7 | Large, mall-like, Walkway is a wide corridor |
+
+The generator must handle grids where:
+- Entire rows or columns may have no placeable cells (all wall/object) → those rows/cols are automatically skipped for suspect placement
+- A room spans multiple disconnected sub-regions (e.g. a corridor that wraps)
+- A cell is occupied by an object that is usable as a clue landmark but is not in the solution space
 
 ### Suspects
 
-- 6–8 suspects per puzzle, drawn from theme name set.
-- Each has a name, a portrait SVG, and a suspect ID (A–H in order).
-- 1 victim per puzzle — named V (e.g. "Vander", "Violet", "Vlimbo"). The victim is NOT placed by the player; they are revealed at the last empty valid cell.
+- Count = W (number of grid columns). One per column, one per row (Latin square).
+- Drawn from the theme's name set in PRNG order.
+- Each has a name, a portrait SVG, and a suspect ID (A, B, C… in order).
+- 1 victim per puzzle — named V (e.g. "Vander", "Violet", "Vlimbo"). Not placed by the player; revealed at the last empty valid cell.
 - The killer = the suspect whose placed cell shares a Room Zone with the victim's cell.
 
 ### Rule of One (Layer A)
 
-Every row (1–6) and every column (1–6) contains at most one suspect. Placing a suspect blocks that row and column for all other suspects. After all suspects are placed, exactly one non-wall, non-object cell remains unblocked — this is the victim's cell.
+Every row (1–H) and every column (1–W) contains at most one suspect. Placing a suspect blocks that entire row and that entire column across the full bounding rectangle. After all suspects are placed, exactly one non-wall, non-object, unblocked cell remains — the victim's cell.
+
+**Edge case**: if a row or column contains zero placeable cells (all walls/objects), it is excluded from the Latin square constraint — suspects are placed only in rows and columns that have at least one valid cell.
 
 ### Spatial Mask (Layer B)
 
@@ -218,21 +245,24 @@ If a player clicks the victim cell while any clue is unsatisfied: unsatisfied cl
 
 ```
 1. Initialize PRNG with seed.
-2. Load theme floor plan (fixed room layout + tile types).
-3. Place furniture objects: randomly sample from theme's object catalog,
-   place on floor tiles, ensure no object blocks all walkable cells in a zone.
-4. Choose N suspects (6–8) from theme's name set (PRNG order).
-5. Compute all valid cells (floor/chair/sofa/bed, not wall/object).
-6. Place suspects: assign each suspect to a unique row AND unique column
-   (Latin square constraint) on a valid cell. Use PRNG + backtracking.
-7. Derive victim cell: the single remaining valid cell after all suspects'
-   rows and columns are blocked.
-8. Derive killer: suspect whose cell shares a zone with victim cell.
-9. Generate clues: for each suspect, generate 1 clue that constrains their
-   position using the 14 clue types. Mix zone clues, column/row clues,
-   adjacency clues, tile-type clues. Prefer variety.
-10. Verify uniqueness: run solver. If multiple solutions exist, add one more
-    clue and re-verify. Repeat until unique.
+2. Load theme floor plan. Derive:
+   - validCols: columns (0..W-1) with ≥1 placeable cell (floor/chair/sofa/bed)
+   - validRows: rows (0..H-1) with ≥1 placeable cell
+   - N = min(validCols.length, validRows.length) = number of suspects for this puzzle
+3. Place furniture objects: theme's fixed floor plan already includes all objects;
+   no random object placement needed (the floor plan IS the level shape).
+4. Choose N suspects from theme name set in PRNG order.
+5. Place suspects: assign each a unique validRow AND unique validCol on a placeable
+   cell within that (row, col) intersection. Use PRNG + backtracking.
+6. Derive victim cell: the single remaining placeable cell with no suspect in its row
+   or column (across the full W×H bounding rectangle).
+7. Derive killer: suspect whose placed cell shares a room with victim cell.
+8. Generate clues: 1 per suspect. Use the 14 clue types available (only use
+   isBesideObject/isNotBesideObject if objects exist in the floor plan;
+   only use onTileType if seat tiles exist; etc.). Maximize variety.
+9. Verify uniqueness: run solver. If multiple solutions → add 1 more clue, re-verify.
+   Repeat up to 5 extra clues. If still not unique → full retry (new PRNG seed offset).
+10. Retry entire placement up to 20 times. Throw on total failure.
 11. Return Puzzle object.
 ```
 
@@ -258,14 +288,61 @@ Each theme exports a `Theme` object implementing this interface:
 interface Theme {
   id: string;                          // "coffee-shop"
   name: string;                        // "The Coffee Shop"
-  floorPlan: FloorPlan;                // fixed 6×6 tile layout + zone definitions
+  floorPlan: FloorPlan;                // W×H tile layout + zone definitions (see below)
   objectCatalog: ObjectType[];         // furniture types available in this theme
-  suspectNames: SuspectName[];         // name pool (at least 12 names)
-  victimNames: string[];               // victim name pool (start with V)
+  suspectNames: SuspectName[];         // name pool (at least W+4 names for the grid)
+  victimNames: string[];               // victim name pool (must start with V)
   narrativeTemplates: NarrativeTemplates;
-  colorPalette: ThemePalette;          // floor/wall/zone colors
+  colorPalette: ThemePalette;          // floor/wall/per-zone colors
   spriteMap: Record<ObjectType, string>; // objectType → SVG asset path
 }
+
+interface FloorPlan {
+  width: number;                       // W: number of columns (4–10)
+  height: number;                      // H: number of rows (4–10)
+  // 2D array [y][x] of tile types: "floor" | "wall" | "chair" | "sofa" | "bed" | "object:<type>"
+  // "object:plant" means an object tile of type "plant"
+  // null means wall (shorthand)
+  tiles: (string | null)[][];
+  // Rooms are defined by listing their member cells explicitly.
+  // A cell not in any room and not a wall is an error (caught at theme load time).
+  rooms: RoomDefinition[];
+  // Objects with names for use in clues (placed at fixed positions in the floor plan)
+  landmarks: LandmarkDefinition[];
+}
+
+interface RoomDefinition {
+  id: string;                          // "bar"
+  name: string;                        // "Bar" (shown in clue text and on GUILTY screen)
+  cells: Array<{x: number, y: number}>; // ALL cells belonging to this room
+  // Note: cells may be any shape — L, T, corridor, single cell. No rectangle constraint.
+}
+
+interface LandmarkDefinition {
+  id: string;                          // "cash-register"
+  name: string;                        // "the cash register" (used verbatim in clue text)
+  x: number;
+  y: number;
+  objectType: string;                  // matches tile type "object:<objectType>"
+}
+```
+
+### Generator algorithm (updated for variable grids)
+
+```
+1. Initialize PRNG with seed.
+2. Load theme floor plan. Derive:
+   - validCols: columns that contain at least one placeable cell (floor/chair/sofa/bed)
+   - validRows: rows that contain at least one placeable cell
+   - N = min(validCols.length, validRows.length) = number of suspects
+3. Place N suspects: assign each to a unique validRow AND unique validCol (Latin square)
+   on a placeable cell within that row+col intersection. Use PRNG + backtracking.
+4. Derive victim cell: the one placeable cell not in any suspect's row or column.
+5. Derive killer: suspect whose placed cell shares a room with victim cell.
+6. Generate clues (one per suspect, varied types). Clue types available depend on
+   what's present in the floor plan (e.g. only use isBesideObject if objects exist).
+7. Verify uniqueness: run solver. If not unique, add clues and re-verify.
+8. Retry up to 20 times if no unique solution found. Throw on total failure.
 ```
 
 ---
