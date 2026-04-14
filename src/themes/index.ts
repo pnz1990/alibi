@@ -5,6 +5,8 @@
 
 import type { FloorPlanDef } from './floor-plans';
 import type { ClueType } from '../engine/clues';
+import { FLOOR_PLANS } from './floor-plans';
+import { COFFEE_SHOP_THEME } from './coffee-shop';
 
 export type { ClueType };
 
@@ -78,11 +80,15 @@ export function getAllThemes(): Theme[] {
 }
 
 // ─────────────────────────────────────────────
+// Theme registrations
+// Import each theme module here; registration is explicit, not side-effect-based.
+// ─────────────────────────────────────────────
+registerTheme(COFFEE_SHOP_THEME);
+
+// ─────────────────────────────────────────────
 // STUB THEME — used for generator tests in Stage 1
 // Simple 4×5 floor plan, 2 rooms, valid for Easy/Medium/Hard
 // ─────────────────────────────────────────────
-
-import { FLOOR_PLANS } from './floor-plans';
 
 const stubClueTemplates: ClueTemplates = {
   inRoom:            (s, r) => `${s} was in the ${r}.`,

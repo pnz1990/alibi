@@ -4,10 +4,11 @@
  *
  * Floor plans: defined in floor-plans.ts (hand-authored, do not modify here).
  * This module provides narrative content: names, clue templates, palette, sprites.
+ *
+ * Registration: src/themes/index.ts imports this module and calls registerTheme().
  */
 
 import type { Theme, ClueTemplates } from './index';
-import { registerTheme } from './index';
 import { FLOOR_PLANS } from './floor-plans';
 
 // ─────────────────────────────────────────────
@@ -106,4 +107,4 @@ export const COFFEE_SHOP_THEME: Theme = {
   },
 };
 
-registerTheme(COFFEE_SHOP_THEME);
+
