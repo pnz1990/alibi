@@ -44,8 +44,7 @@ REPORT_ISSUE:   1
 REPORT_URL:     https://github.com/pnz1990/alibi/issues/1
 BOARD_URL:      ""
 BUILD_COMMAND:  npm run build
-TEST_COMMAND:   npm test
-E2E_COMMAND:    npm run test:e2e
+TEST_COMMAND:   npm test && npm run test:e2e
 LINT_COMMAND:   npm run lint
 VULN_COMMAND:   ""
 DEV_SERVER:     npm run dev
@@ -343,9 +342,233 @@ interface RoomDefinition {
 }
 ```
 
+## Clue Template Format
+
+Every theme module exports a `ClueTemplates` object with natural-language string templates for each clue type. Templates use `{{mustache}}` variables. The generator fills these in after computing the solution.
+
+```typescript
+interface ClueTemplates {
+  inRoom:              (suspectName: string, roomName: string) => string;
+  notInRoom:           (suspectName: string, roomName: string) => string;
+  inSameRoom:          (suspectName: string, otherName: string) => string;
+  inDifferentRoom:     (suspectName: string, otherName: string) => string;
+  inColumn:            (suspectName: string, colNumber: number) => string;  // colNumber is 1-indexed
+  inRow:               (suspectName: string, rowNumber: number) => string;  // rowNumber is 1-indexed
+  besideSuspect:       (suspectName: string, otherName: string) => string;
+  notBesideSuspect:    (suspectName: string, otherName: string) => string;
+  besideObject:        (suspectName: string, objectName: string) => string;  // objectName = landmark.name
+  notBesideObject:     (suspectName: string, objectName: string) => string;
+  onSeatTile:          (suspectName: string, tileName: string) => string;   // tileName: "chair"|"sofa"|"bed"
+  notOnSeatTile:       (suspectName: string) => string;
+  northOf:             (suspectName: string, otherName: string) => string;
+  southOf:             (suspectName: string, otherName: string) => string;
+  exactlyNRowsNorth:   (suspectName: string, otherName: string, n: number) => string;
+  exactlyNRowsSouth:   (suspectName: string, otherName: string, n: number) => string;
+}
+```
+
+### Example templates (Coffee Shop flavor)
+
+```typescript
+export const coffeeShopClueTemplates: ClueTemplates = {
+  inRoom:           (s, r) => `${s} was in the ${r}.`,
+  notInRoom:        (s, r) => `${s} was not in the ${r}.`,
+  inSameRoom:       (s, o) => `${s} was in the same area as ${o}.`,
+  inDifferentRoom:  (s, o) => `${s} and ${o} were in different parts of the café.`,
+  inColumn:         (s, c) => `${s} was in the ${ordinal(c)} column.`,
+  inRow:            (s, r) => `${s} was in the ${ordinal(r)} row.`,
+  besideSuspect:    (s, o) => `${s} was standing next to ${o}.`,
+  notBesideSuspect: (s, o) => `${s} was not beside ${o}.`,
+  besideObject:     (s, obj) => `${s} was beside ${obj}.`,
+  notBesideObject:  (s, obj) => `${s} was not beside ${obj}.`,
+  onSeatTile:       (s, t) => t === "chair" ? `${s} was sitting in a chair.`
+                             : t === "sofa"  ? `${s} was on the sofa.`
+                             :                `${s} was on the ${t}.`,
+  notOnSeatTile:    (s) => `${s} was not sitting down.`,
+  northOf:          (s, o) => `${s} was north of ${o}.`,
+  southOf:          (s, o) => `${s} was south of ${o}.`,
+  exactlyNRowsNorth:(s, o, n) => `${s} was exactly ${n} row${n>1?"s":""} north of ${o}.`,
+  exactlyNRowsSouth:(s, o, n) => `${s} was exactly ${n} row${n>1?"s":""} south of ${o}.`,
+};
+```
+
+Each theme provides its own flavor-appropriate templates. The Gym uses athletic language. The Hospital uses clinical language. The Carnival uses theatrical language. This is how the game feels different in each setting even though the mechanic is the same.
+
 ---
 
-## Generator Algorithm
+## Clue Variety Constraint Algorithm
+
+The generator MUST follow this algorithm for clue selection (step 12 in the Generator Algorithm):
+
+```typescript
+function selectClueTypes(
+  N: number,
+  difficulty: Difficulty,
+  floorPlan: FloorPlan,
+): ClueType[] {
+  const allowed = ALLOWED_CLUE_TYPES[difficulty]; // per AGENTS.md §Difficulty table
+  const hasObjects = floorPlan.landmarks.length >= 2;
+  const hasSeatTiles = floorPlan tiles contain any "chair"|"sofa"|"bed";
+
+  // Filter allowed types by what the floor plan supports
+  const available = allowed.filter(type => {
+    if (type.includes("Object") && !hasObjects) return false;
+    if (type.includes("SeatTile") && !hasSeatTiles) return false;
+    return true;
+  });
+
+  // Select one type per suspect, enforcing variety:
+  const selected: ClueType[] = [];
+  for (let i = 0; i < N; i++) {
+    // Never use the same type more than Math.ceil(N * 0.4) times total
+    // Never use the same type for two consecutive suspects
+    const forbidden = new Set<ClueType>();
+    if (selected.length > 0) forbidden.add(selected[selected.length - 1]);
+    for (const type of available) {
+      const usageCount = selected.filter(t => t === type).length;
+      if (usageCount >= Math.ceil(N * 0.4)) forbidden.add(type);
+    }
+    const candidates = available.filter(t => !forbidden.has(t));
+    // PRNG-pick from candidates; prefer types not yet used
+    const unused = candidates.filter(t => !selected.includes(t));
+    const pool = unused.length > 0 ? unused : candidates;
+    selected.push(prngPick(pool));
+  }
+  return selected;
+}
+```
+
+This guarantees: no clue type dominates (≤40% of clues), no two consecutive clues of the same type, and at least one adjacency/position clue per puzzle on Medium+.
+
+---
+
+## Sprite Catalog
+
+All SVG sprites are bundled via Vite `?raw` imports from `src/assets/sprites/`.
+Each file is a clean flat-vector SVG with `viewBox="0 0 32 32"`.
+
+### Required sprites (global, used across themes)
+
+| File | Object type | Used in themes |
+|---|---|---|
+| `chair.svg` | chair (seat tile) | All |
+| `sofa.svg` | sofa (seat tile) | Backyard, Restaurant, Hospital |
+| `bed.svg` | bed (seat tile) | Backyard, Hospital |
+| `plant.svg` | object:plant | Coffee Shop, Backyard, Restaurant, Office, Garden Party |
+| `table.svg` | object:table | Bookstore, Restaurant, Gym, Office |
+| `shelf.svg` | object:shelf | Bookstore, Holiday Mall |
+| `cash-register.svg` | object:cash-register | Coffee Shop, Bookstore, Restaurant, Holiday Mall |
+| `bar-counter.svg` | object:bar-counter | Coffee Shop, Restaurant |
+| `counter.svg` | object:counter | Restaurant, Gym |
+| `desk.svg` | object:desk | Office |
+| `photocopier.svg` | object:photocopier | Office |
+| `tv.svg` | object:tv | Backyard, Office |
+| `flower-bed.svg` | object:flower-bed | Garden Party |
+| `jacuzzi-tile.svg` | object:jacuzzi-tile | Backyard, Gym |
+| `hospital-bed.svg` | object:hospital-bed | Hospital |
+| `medicine-cabinet.svg` | object:medicine-cabinet | Hospital |
+| `weight-rack.svg` | object:weight-rack | Gym |
+| `treadmill.svg` | object:treadmill | Gym |
+| `shelf-books.svg` | object:shelf (bookstore variant) | Bookstore |
+| `stall.svg` | object:stall | Holiday Mall, Carnival |
+| `teddy-bear.svg` | object:teddy-bear | Holiday Mall |
+| `tree.svg` | object:tree | Holiday Mall |
+| `carousel-horse.svg` | object:carousel-horse | Carnival |
+
+### Fallback rendering
+
+If a sprite SVG file is absent or fails to load, the renderer draws a labeled colored rectangle:
+- Width/height: one grid cell
+- Background: `#c8a96e` (warm beige)
+- Text: the object type name, truncated to 4 chars, in 8px pixel font, white
+
+**QA does NOT block PRs for missing sprite files.** Placeholder fallback is acceptable for v1.0. Real sprites are a quality enhancement.
+
+---
+
+## Product Validation Scenarios (PM Phase — every 3 cycles)
+
+The PM agent opens the live game at `https://pnz1990.github.io/alibi/` using the browser extension and validates all three modes. This is mandatory, not optional. If the game is not yet deployed, use `http://localhost:5173`.
+
+```bash
+# Build and serve locally if not deployed
+npm run build && npx serve dist -p 5173 &
+```
+
+### Scenario 1: Quick Play works
+
+```
+browser_navigate("https://pnz1990.github.io/alibi/")
+browser_screenshot()                           → home screen visible, 3 mode buttons
+browser_click('[data-testid="btn-quickplay"]')
+browser_click('[data-testid="theme-card-coffee-shop"]')
+browser_click('[data-testid="difficulty-easy"]')
+browser_screenshot()                           → Coffee Shop puzzle loaded
+browser_errors()                               → zero errors
+```
+
+Pass: home screen loads, Quick Play navigates to puzzle without errors.
+
+### Scenario 2: Full playthrough — Coffee Shop Easy
+
+```
+# Using seed=42 for determinism in PM validation
+browser_navigate("https://pnz1990.github.io/alibi/?theme=coffee-shop&difficulty=easy&seed=42")
+# Dismiss narrative intro
+browser_click('[data-testid="narrative-intro"] button')
+# Read window.__alibi_puzzle.solution (only available in dev builds — skip in prod)
+# Place suspects manually using clue cards as guidance
+# [place all suspects]
+browser_click('[data-testid="victim-cell"]')
+browser_screenshot()                           → GUILTY stamp visible
+browser_errors()                               → zero
+```
+
+Pass: GUILTY screen reached, correct killer named, zero errors.
+
+### Scenario 3: Campaign creates 12 cases
+
+```
+browser_click('[data-testid="btn-campaign"]')
+browser_screenshot()                           → campaign screen or slot picker
+# Start new campaign
+browser_query('[data-testid^="case-card-"]', mode="count")  → should equal 12
+browser_query('[data-testid="case-status-0"]', property="className") → should NOT contain "locked"
+browser_query('[data-testid="case-status-1"]', property="className") → should contain "locked"
+browser_screenshot()                           → 12 case cards, case 1 unlocked
+```
+
+Pass: 12 case cards visible, only first unlocked.
+
+### Scenario 4: Daily Case loads
+
+```
+browser_click('[data-testid="btn-daily"]')
+browser_screenshot()                           → daily puzzle loaded with date in title
+browser_errors()                               → zero
+```
+
+Pass: daily puzzle loads, no errors.
+
+### Scenario 5: All 10 themes load without errors
+
+```
+for each theme in [coffee-shop, bookstore, backyard, holiday-mall, restaurant,
+                   gym, office, garden-party, hospital, carnival]:
+  browser_navigate(f"https://pnz1990.github.io/alibi/?theme={theme}&difficulty=easy&seed=1")
+  browser_screenshot()   → puzzle grid renders
+  browser_errors()       → zero
+```
+
+Pass: all 10 themes load without JS errors. Report any that fail with screenshot and error log.
+
+### PM must open GitHub issue for any scenario failure
+
+- Label: `kind/bug`, `priority/critical`, `area/game`
+- Title: "PM validation failure: [scenario name] — [brief symptom]"
+- Body: screenshot + browser_errors output
+
+---
 
 `src/engine/generator.ts` takes `(seed, theme, difficulty)` → `Puzzle`.
 
@@ -472,7 +695,7 @@ Every PR touching render/game/modes/storage must be verified with BOTH:
 
 | Group | Labels |
 |---|---|
-| Kind | `kind/enhancement`, `kind/bug`, `kind/chore`, `kind/docs`, `kind/security` |
+| Kind | `kind/enhancement`, `kind/bug`, `kind/chore`, `kind/docs`, `kind/accessibility` |
 | Area | `area/engine`, `area/generator`, `area/render`, `area/game`, `area/themes`, `area/ui`, `area/campaign`, `area/storage`, `area/deploy` |
 | Priority | `priority/critical`, `priority/high`, `priority/medium`, `priority/low` |
 | Size | `size/xs`, `size/s`, `size/m`, `size/l`, `size/xl` |
@@ -488,3 +711,4 @@ Every PR touching render/game/modes/storage must be verified with BOTH:
 - `AGENTS.md`
 - `.specify/memory/constitution.md`
 - `.specify/memory/sdlc.md`
+- `src/themes/floor-plans.ts` — all 30 hand-authored floor plan definitions. These are fixed product assets. Any change requires `[NEEDS HUMAN]` escalation.
