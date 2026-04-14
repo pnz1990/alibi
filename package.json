@@ -1,0 +1,25 @@
+{
+  "name": "alibi",
+  "version": "0.0.1",
+  "private": true,
+  "description": "ALIBI — browser murder mystery logic-deduction game",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint src --ext .ts",
+    "test:e2e": "playwright test",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.43.0",
+    "@typescript-eslint/eslint-plugin": "^7.6.0",
+    "@typescript-eslint/parser": "^7.6.0",
+    "@vitest/coverage-v8": "^1.5.0",
+    "eslint": "^8.57.0",
+    "typescript": "^5.4.5",
+    "vite": "^5.2.8",
+    "vitest": "^1.5.0"
+  }
+}
