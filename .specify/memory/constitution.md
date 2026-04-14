@@ -1,50 +1,59 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+# ALIBI Constitution
 
-## Core Principles
+**Version**: 1.0.0 | **Ratified**: 2026-04-14 | **Last Amended**: 2026-04-14
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+This document governs agent behavior on the ALIBI project. It supersedes all other guidance when there is a conflict.
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+---
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+## I. The Game Is The Product (NON-NEGOTIABLE)
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+ALIBI is a browser game. The measure of every item is: does the game play correctly in a real browser?
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+Unit tests are necessary but not sufficient. Every feature that affects the player experience MUST be verified end-to-end using Playwright (npm run test:e2e) AND the OpenCode browser extension (browser_screenshot, browser_click, browser_errors). See AGENTS.md §E2E Testing for the full protocol.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+A PR that passes unit tests but has never been run in a browser is not done.
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+---
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+## II. Pure Engine, Side-Effectful Shell
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+All game logic (grid model, Rule of One, spatial mask, clue evaluation, win condition, solver) lives in src/engine/ as pure functions with zero side effects. These functions take data, return data. They have no knowledge of the DOM, canvas, localStorage, or audio.
 
-## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
+All side effects (rendering, input, sound, save, share) live in src/render/ and src/game/. They call the engine; the engine never calls them back.
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+Violating this boundary is the single most common failure mode in game code. Re-read AGENTS.md §Anti-Patterns before every PR.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+---
+
+## III. TDD — Tests First (NON-NEGOTIABLE)
+
+Implementation order: failing test → passing code → refactor. Always.
+
+For engine code: write a Vitest unit test first.
+For render/game code: write a Playwright e2e test first (or add assertions to an existing spec).
+No code is merged without a test that would catch a regression in that exact behavior.
+
+---
+
+## IV. Zero Runtime Dependencies
+
+The production bundle contains zero npm packages not authored for this project. Vite, Vitest, Playwright, ESLint, TypeScript are build/dev tools — they do not appear in the bundle. Adding a runtime dependency requires a [NEEDS HUMAN] escalation. It will not be approved for v1.0.
+
+---
+
+## V. data-testid Is An API Contract
+
+Every interactive and observable DOM element must have a data-testid attribute matching the table in AGENTS.md §E2E Testing. These are part of the public contract between the render layer and the test layer. Removing or renaming a data-testid without updating the Playwright spec is a breaking change and will fail CI.
+
+---
+
+## VI. Level JSON Is Ground Truth
+
+The solution, clues, zones, and narrative in each level JSON file are the authoritative source of truth. The engine validates against the JSON; it never hard-codes level knowledge. The solver (npm run verify-levels) must confirm a unique solution before any level JSON is merged.
+
+---
+
+## VII. Escalate, Never Workaround
+
+If a requirement cannot be implemented as specified: post [NEEDS HUMAN] with the exact question. Do not simplify the requirement, defer it, or implement a workaround that violates the constitution.
