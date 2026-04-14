@@ -139,6 +139,35 @@ package.json
 - No external runtime dependencies beyond Vite dev tooling. Zero npm packages in the production bundle.
 - Tests: Vitest, co-located `*.test.ts` files. All logic-layer functions must have unit tests.
 - Every level JSON must pass the solver (constraint solver verifies unique solution) before merge.
+- Copyright header on every source file: `// Copyright 2026 The alibi Authors. Apache-2.0.`
+- ESLint with `@typescript-eslint/recommended` ruleset. `npm run lint` must exit 0 before merge.
+
+## Coordinate System (all agents must know this)
+
+- Grid: 9×9. x = column 0–8 (A–I, left to right). y = row 0–8 (row 1–9, top to bottom).
+- **North = smaller y (up on screen). South = larger y (down on screen).**
+- Chebyshev distance: `max(abs(dx), abs(dy))`. Used for `isFarFrom` and `isNorthOf`/`isSouthOf`.
+- `isBeside` = Moore neighbourhood (8 surrounding cells, Chebyshev distance ≤ 1).
+
+## Rule of One Conflict Behavior (UX decision)
+
+When a player tries to place a suspect in a row or column already occupied by another suspect:
+- **The placement is BLOCKED** — the radial menu does not appear, and no placement occurs.
+- The cell flashes red for 500ms to indicate why it is blocked.
+- This is a hard block, not a soft warning. Players must first clear the conflicting suspect.
+
+## Win Condition — Clue Satisfaction Gate
+
+- The "victim cell" (the single remaining unblocked empty cell) is **always highlighte** once all 8 suspects are placed.
+- **If any clue is unsatisfied when the player clicks the victim cell**: the accusation screen does NOT trigger. Instead, unsatisfied clues in the sidebar flash red and a message reads "Something doesn't add up..." The player must fix the clue violations first.
+- **Only when all clues are satisfied AND the player clicks the victim cell** does the body-reveal + GUILTY sequence play.
+
+## Pixel Art — v1.0 Scope
+
+- v1.0 uses **placeholder sprites only**: suspects rendered as colored 16×16 rectangles with their initial letter (A–H) in a pixel font. Victim rendered as a "?" sprite.
+- Theme tile graphics (floor, wall, seat) are distinct flat colors per theme — no bitmapped artwork required for v1.0.
+- Real pixel-art sprites are a post-v1.0 enhancement. QA must NOT block PRs for missing artwork.
+- The `assets/sprites/` directory exists but may be empty at v1.0. The renderer falls back to placeholder rendering if a sprite file is absent.
 
 ## Banned Filenames
 

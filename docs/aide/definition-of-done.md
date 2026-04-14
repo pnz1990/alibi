@@ -16,6 +16,7 @@ cd alibi
 npm install
 npm run build           # must exit 0
 npm test                # must exit 0, all tests green
+npm run lint            # must exit 0, zero findings
 # CI deploys to gh-pages branch on merge to main
 # https://pnz1990.github.io/alibi/ loads a 9x9 grid
 ```
@@ -24,6 +25,7 @@ npm test                # must exit 0, all tests green
 
 - [ ] `npm run build` exits 0 with no errors
 - [ ] `npm test` exits 0 with all tests passing
+- [ ] `npm run lint` exits 0 with zero findings
 - [ ] GitHub Pages URL renders an HTML page with a canvas element
 - [ ] No JS errors in the browser console on load
 
@@ -38,10 +40,14 @@ npm test                # must exit 0, all tests green
 ```bash
 npm test
 # All tests in src/engine/*.test.ts must pass:
-# - grid: placement allowed only on Floor/Seat, not Solid
-# - logic: Rule of One blocks row+column after placement
-# - logic: win condition fires when exactly 1 valid cell remains after 8 placements
-# - clues: isBeside, isInRoom, isInSameRow, isFarFrom, isNorthOf all pass their test suites
+# - grid: placement allowed only on Floor/Seat, not Solid/Wall
+# - grid: placement BLOCKED (radial menu suppressed) when row or column already occupied
+# - logic: Rule of One — placing suspect in occupied row/col returns blocked=true
+# - logic: win condition fires only when all 8 placed AND all clues satisfied
+# - logic: victim cell highlighted only after all 8 suspects placed
+# - clues: all 12 clue type evaluators pass test suites (fixedPosition, isBeside,
+#          isNotBeside, isInRoom, isNotInRoom, isInSameRoom, isInDifferentRoom,
+#          isInSameRow, isInSameCol, isFarFrom, isNorthOf, isSouthOf)
 # - solver: Level 1 JSON has exactly one solution
 ```
 
@@ -62,14 +68,14 @@ npm test
 ```
 1. Open https://pnz1990.github.io/alibi/ in Chrome/Firefox/Safari
 2. Level 1 (The Speakeasy) is shown
-3. Read the 6 clues in the sidebar
-4. Click a Floor cell → radial menu appears with suspects A–H
+3. Read the 9 clues in the sidebar (see docs/level-designs.md for the exact clue set)
+4. Click a Floor/Seat cell → radial menu appears with suspects A–H
 5. Select a suspect → token placed, row+column shadow drawn
 6. Repeat until all 8 suspects placed satisfying all clues
 7. All clues show strikethrough in sidebar
-8. One empty valid cell remains highlighted
-9. Click it → victim sprite appears
-10. "GUILTY" stamp animation plays, killer identified
+8. One empty valid cell remains highlighted (E-9 in Level 1)
+9. Click it → victim sprite (placeholder "?") appears
+10. "GUILTY" stamp animation plays, killer identified as Elias
 ```
 
 ### Pass criteria
@@ -83,24 +89,44 @@ npm test
 
 ---
 
-## Journey 4: Incorrect placement is blocked
+## Journey 4: Invalid placement blocked + clue gate enforced
 
-**The user story**: A player tries to place a suspect on a wall tile or in a cell that violates the Rule of One; the game prevents or signals the invalid move.
+**The user story**: A player places all 8 suspects, but some clues are still unsatisfied. The game should not trigger the win sequence; it should signal which clues are wrong. Then the player fixes them, and the game correctly proceeds to the GUILTY screen.
 
 ### Exact steps that must work
 
 ```
-1. Click a Solid tile → nothing happens (no radial menu)
-2. Place suspect A in row 3 → column shadow drawn
-3. Try to place suspect B in the same row 3 → either blocked or flagged as conflict
-4. Try to place suspect C in the same column as A → either blocked or flagged
+1. Place all 8 suspects in positions that satisfy most but not all clues
+2. The victim cell is highlighted (all rows/cols blocked)
+3. Click the victim cell
+4. Expected: unsatisfied clues flash red in sidebar; message "Something doesn't add up..."
+5. Expected: NO body reveal, NO GUILTY stamp
+6. Player moves a suspect to satisfy all clues
+7. All clue texts show strikethrough
+8. Click victim cell again
+9. Expected: body reveal + GUILTY stamp for Elias (Level 1)
+```
+
+### Exact steps that must work
+
+```
+1. Click a Wall tile → nothing happens (no radial menu, no flash)
+2. Place suspect A in row 1 (y=0) at a valid cell
+3. Click any other cell in row 1 (y=0) → cell flashes red, no radial menu opens
+4. Click any other cell in the same column as A → cell flashes red, no radial menu opens
+5. Click the cell occupied by A → radial menu opens with "Clear" option
+6. Clear A → row and column shadows removed, that row/col become available again
 ```
 
 ### Pass criteria
 
-- [ ] Solid tiles are unclickable
-- [ ] Duplicate row/column placement is either prevented or visually flagged as a conflict
-- [ ] No JS errors thrown on invalid placement attempt
+- [ ] Wall tiles are unclickable (no radial menu, no flash)
+- [ ] Clicking a cell in an occupied row or column flashes the cell red and does NOT open the radial menu
+- [ ] Clicking a placed suspect opens the radial menu with a "Clear" option
+- [ ] Clearing a suspect removes the row/column shadow and makes those positions available again
+- [ ] Clicking the victim cell while any clue is unsatisfied: unsatisfied clues flash red, no GUILTY screen
+- [ ] After all clues satisfied: clicking victim cell triggers body reveal + GUILTY stamp
+- [ ] No JS errors thrown on any invalid placement attempt
 
 ---
 
@@ -139,5 +165,5 @@ npm run verify-levels
 | 1: Skeleton loads and deploys | ❌ Not started | — | Requires Stage 0 |
 | 2: Logic engine validates | ❌ Not started | — | Requires Stage 1 |
 | 3: Player completes Level 1 | ❌ Not started | — | Requires Stages 2–3 |
-| 4: Invalid placement blocked | ❌ Not started | — | Requires Stage 2 |
+| 4: Invalid placement + clue gate | ❌ Not started | — | Requires Stage 2 |
 | 5: All 4 levels playable | ❌ Not started | — | Requires Stage 4 |

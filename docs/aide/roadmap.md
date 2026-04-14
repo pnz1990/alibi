@@ -15,10 +15,11 @@ The game skeleton (canvas, grid, logic engine, CI, GitHub Pages deploy) must exi
 **Goal:** Working Vite + TypeScript project that renders an empty 9×9 grid on canvas, deployed to GitHub Pages via CI.
 
 ### Deliverables
-- `package.json` with Vite + TypeScript + Vitest configured
+- `package.json` with Vite + TypeScript + Vitest + ESLint (`@typescript-eslint/recommended`) configured
 - `index.html` + `src/main.ts` entry point
 - Canvas renderer draws a 9×9 grid at 2× pixel scale
-- GitHub Actions CI: `npm run build` + `npm test` on every PR
+- `npm run build`, `npm test`, `npm run lint` all exit 0
+- GitHub Actions CI: all three commands on every PR
 - GitHub Pages deploy workflow (`gh-pages` branch on merge to main)
 - Vitest configured, at least one passing smoke test
 
@@ -34,7 +35,7 @@ None
 ### Deliverables
 - `src/engine/grid.ts` — 9×9 grid model with tile types (Floor/Solid/Seat) and room zones
 - `src/engine/logic.ts` — Rule of One validator, Spatial Mask filter, win condition detector (single remaining valid cell)
-- `src/engine/clues.ts` — All 5 clue type evaluators: `isBeside`, `isInRoom`, `isInSameRow`, `isFarFrom`, `isNorthOf`
+- `src/engine/clues.ts` — All 12 clue type evaluators: `fixedPosition`, `isBeside`, `isNotBeside`, `isInRoom`, `isNotInRoom`, `isInSameRoom`, `isInDifferentRoom`, `isInSameRow`, `isInSameCol`, `isFarFrom`, `isNorthOf`, `isSouthOf` — see `docs/level-format.md` for full definitions
 - `src/engine/solver.ts` — Constraint solver that verifies a level JSON has exactly one solution
 - Full Vitest coverage on all engine functions (>90% line coverage)
 - Level JSON schema documented in `docs/level-format.md`
@@ -67,11 +68,10 @@ Stage 1
 **Goal:** First complete, fully playable level with real pixel-art assets and a verified unique-solution clue set.
 
 ### Deliverables
-- `src/levels/001-speakeasy.json` — complete level definition: 9×9 tile map, 6 room zones, 8 suspects, victim, 6 clues
-- Level passes constraint solver (unique solution verified)
-- Pixel-art sprite sheet for Speakeasy theme (dark wood, brass, velvet booths)
-- Suspect token sprites (A–H pixel portraits, 8×8 or 16×16)
-- Victim sprite (V)
+- `src/levels/001-speakeasy.json` — complete level definition (see `docs/level-designs.md` for the authoritative design: 9×9 tile map, zones, suspects, victim, 9 clues, solution)
+- Level passes constraint solver (unique solution verified by `npm run verify-levels`)
+- Placeholder sprite rendering: 16×16 colored rectangles with initials. Real pixel art is NOT required for v1.0.
+- Victim placeholder: "?" sprite
 - Level passes all 5 definition-of-done journeys manually
 
 ### Dependencies
@@ -84,11 +84,11 @@ Stage 2
 **Goal:** Four complete levels, one per theme. Full game is playable start to finish.
 
 ### Deliverables
-- `src/levels/002-luxury-liner.json` — Teak decking, lifeboats, porthole views
-- `src/levels/003-art-gallery.json` — White tiles, marble pedestals, velvet ropes
-- `src/levels/004-greenhouse.json` — Cobblestone paths, ferns, glass partitions
-- Sprite sheets for each theme
-- Each level passes constraint solver
+- `src/levels/002-luxury-liner.json` — (see `docs/level-designs.md` for authoritative design)
+- `src/levels/003-art-gallery.json` — (see `docs/level-designs.md`)
+- `src/levels/004-greenhouse.json` — (see `docs/level-designs.md`)
+- Theme color palettes per level (flat colors, no bitmapped artwork required)
+- Each level passes constraint solver (`npm run verify-levels`)
 - Level select screen
 
 ### Dependencies
