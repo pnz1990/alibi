@@ -1,160 +1,288 @@
 # Definition of Done
 
-> The project is complete when every journey below passes end-to-end on the live GitHub Pages deployment.
+> The project is complete when every journey below passes end-to-end.
+> **Journeys 1–2 are verified by automated tests. Journeys 3–5 are verified by BOTH Playwright AND the OpenCode browser extension. No journey is marked ✅ without browser evidence.**
+
+---
+
+## How to verify journeys
+
+Every engineer and QA agent uses two tools:
+
+1. **Playwright** (`npm run test:e2e`) — headless automated browser tests. Must pass in CI.
+2. **OpenCode browser extension** — visual verification during development. Screenshots go in the PR body.
+
+```bash
+# Start dev server (required for e2e tests)
+npm run dev &
+
+# Run all Playwright tests
+npm run test:e2e
+
+# Run a specific spec
+npx playwright test tests/e2e/level1.spec.ts --headed
+
+# Visual verification with browser extension (run from OpenCode session):
+# → browser_navigate to http://localhost:5173
+# → browser_screenshot, browser_click, browser_query, browser_errors
+```
 
 ---
 
 ## Journey 1: Skeleton loads and deploys
 
-**The user story**: A developer clones the repo, runs `npm run build`, and the project builds and deploys to GitHub Pages without errors.
+**The user story**: The project builds, tests pass, and the game loads on GitHub Pages with no errors.
 
-### Exact steps that must work
+### Automated verification
 
 ```bash
-git clone https://github.com/pnz1990/alibi
-cd alibi
 npm install
 npm run build           # must exit 0
-npm test                # must exit 0, all tests green
+npm test                # Vitest unit tests, must exit 0
 npm run lint            # must exit 0, zero findings
-# CI deploys to gh-pages branch on merge to main
-# https://pnz1990.github.io/alibi/ loads a 9x9 grid
+npm run verify-levels   # solver check, must exit 0
+npm run test:e2e        # Playwright, must exit 0
+```
+
+### Browser extension verification
+
+```
+browser_navigate("http://localhost:5173")
+browser_screenshot()           → grid must be visible, no blank canvas
+browser_errors()               → must return zero JS errors
+browser_console(filter="error") → must return empty
 ```
 
 ### Pass criteria
 
-- [ ] `npm run build` exits 0 with no errors
-- [ ] `npm test` exits 0 with all tests passing
-- [ ] `npm run lint` exits 0 with zero findings
-- [ ] GitHub Pages URL renders an HTML page with a canvas element
-- [ ] No JS errors in the browser console on load
+- [ ] All four npm commands exit 0
+- [ ] `browser_screenshot` shows a rendered 9×9 grid
+- [ ] `browser_errors` returns zero errors
+- [ ] GitHub Pages URL (`https://pnz1990.github.io/alibi/`) loads after CI deploy
+- [ ] `[data-testid="game-canvas"]` element is present in the DOM
 
 ---
 
 ## Journey 2: Logic engine correctly validates placements
 
-**The user story**: A developer runs the unit tests and all clue evaluators and win-condition logic pass with verified edge cases.
+**The user story**: All 12 clue evaluators, Rule of One, spatial mask, and win condition logic are unit-tested and pass.
 
-### Exact steps that must work
+### Automated verification
 
 ```bash
 npm test
-# All tests in src/engine/*.test.ts must pass:
-# - grid: placement allowed only on Floor/Seat, not Solid/Wall
-# - grid: placement BLOCKED (radial menu suppressed) when row or column already occupied
-# - logic: Rule of One — placing suspect in occupied row/col returns blocked=true
-# - logic: win condition fires only when all 8 placed AND all clues satisfied
-# - logic: victim cell highlighted only after all 8 suspects placed
-# - clues: all 12 clue type evaluators pass test suites (fixedPosition, isBeside,
-#          isNotBeside, isInRoom, isNotInRoom, isInSameRoom, isInDifferentRoom,
-#          isInSameRow, isInSameCol, isFarFrom, isNorthOf, isSouthOf)
-# - solver: Level 1 JSON has exactly one solution
+# Must see in output:
+# ✓ src/engine/grid.test.ts — placement on Floor/Seat allowed
+# ✓ src/engine/grid.test.ts — placement on Wall blocked
+# ✓ src/engine/logic.test.ts — Rule of One: occupied row returns blocked=true
+# ✓ src/engine/logic.test.ts — Rule of One: occupied col returns blocked=true
+# ✓ src/engine/logic.test.ts — win condition requires all 8 placed + all clues satisfied
+# ✓ src/engine/clues.test.ts — all 12 clue types pass
+# ✓ src/engine/solver.test.ts — Level 1 has exactly one solution
+
+npm run verify-levels
+# Level 001: UNIQUE SOLUTION ✓
+# Level 002: UNIQUE SOLUTION ✓
+# Level 003: UNIQUE SOLUTION ✓
+# Level 004: UNIQUE SOLUTION ✓
 ```
 
 ### Pass criteria
 
-- [ ] All engine unit tests pass
-- [ ] Solver confirms Level 1 has exactly one solution
-- [ ] Coverage report shows >90% line coverage on `src/engine/`
+- [ ] `npm test` exits 0, all engine tests green
+- [ ] Coverage on `src/engine/` ≥ 90% line coverage
+- [ ] `npm run verify-levels` exits 0, all 4 levels confirmed unique solution
 
 ---
 
 ## Journey 3: Player completes Level 1 (The Speakeasy)
 
-**The user story**: A new player opens the game, reads the alibis, places all 8 suspects correctly, clicks the victim cell, and sees the "GUILTY" stamp.
+**The user story**: A player opens the game, reads the intro narrative, places all 8 suspects correctly, clicks the victim cell, and sees the GUILTY stamp naming Elias.
 
-### Exact steps that must work
+### Playwright verification
+
+```bash
+npx playwright test tests/e2e/level1.spec.ts
+# Must pass:
+# ✓ Level 1 — narrative intro shown on load
+# ✓ Level 1 — full playthrough reaches GUILTY screen
+# ✓ Level 1 — GUILTY stamp names Elias
+# ✓ Level 1 — share card appears after GUILTY
+# ✓ Level 1 — clues all strikethrough before victim click
+# ✓ Level 1 — undo reverses last placement
+```
+
+### Browser extension verification (required in PR body)
 
 ```
-1. Open https://pnz1990.github.io/alibi/ in Chrome/Firefox/Safari
-2. Level 1 (The Speakeasy) is shown
-3. Read the 9 clues in the sidebar (see docs/level-designs.md for the exact clue set)
-4. Click a Floor/Seat cell → radial menu appears with suspects A–H
-5. Select a suspect → token placed, row+column shadow drawn
-6. Repeat until all 8 suspects placed satisfying all clues
-7. All clues show strikethrough in sidebar
-8. One empty valid cell remains highlighted (E-9 in Level 1)
-9. Click it → victim sprite (placeholder "?") appears
-10. "GUILTY" stamp animation plays, killer identified as Elias
+browser_navigate("http://localhost:5173")
+browser_screenshot()
+# → capture: narrative intro text visible
+
+browser_click('[data-testid="narrative-intro"] button')
+browser_screenshot()
+# → capture: 9×9 grid loaded, sidebar showing 9 clues
+
+# Place Arthur (A) at solution position B-1 (x=1, y=0)
+browser_click('[data-testid="cell-1-0"]')
+browser_screenshot()
+# → capture: radial menu visible with suspects A–H
+
+browser_click('[data-testid="suspect-option-A"]')
+browser_screenshot()
+# → capture: Arthur token on B-1, shadow covers row 1 and col B
+
+# [continue placing B through H at solution positions]
+
+browser_screenshot()
+# → capture: all 8 suspects placed, victim cell E-9 highlighted, all clues struck through
+
+browser_click('[data-testid="victim-cell"]')
+browser_screenshot()
+# → capture: GUILTY stamp visible, "Elias" text present
+
+browser_errors()
+# → must return zero errors
 ```
 
 ### Pass criteria
 
-- [ ] Radial menu opens on valid cell click
-- [ ] Shadow overlay covers the correct row and column after each placement
-- [ ] Clue text strikes through when satisfied
-- [ ] Exactly one valid empty cell remains after all 8 suspects placed
-- [ ] Victim sprite appears on that cell on click
-- [ ] "GUILTY" stamp appears with the correct killer name
+- [ ] `npx playwright test tests/e2e/level1.spec.ts` exits 0, all tests green
+- [ ] PR body contains `browser_screenshot` showing: intro screen, grid with first placement, all suspects placed, GUILTY stamp
+- [ ] `browser_errors` output in PR body shows zero JS errors
+- [ ] GUILTY stamp names Elias
+- [ ] Share card appears after GUILTY stamp
 
 ---
 
 ## Journey 4: Invalid placement blocked + clue gate enforced
 
-**The user story**: A player places all 8 suspects, but some clues are still unsatisfied. The game should not trigger the win sequence; it should signal which clues are wrong. Then the player fixes them, and the game correctly proceeds to the GUILTY screen.
+**The user story**: Wall clicks do nothing. Occupied row/col clicks flash red. Clicking the victim cell with unsatisfied clues shows the error state instead of GUILTY.
 
-### Exact steps that must work
+### Playwright verification
+
+```bash
+npx playwright test tests/e2e/placement.spec.ts
+# Must pass:
+# ✓ Wall tile click — no radial menu opens
+# ✓ Occupied row click — cell gets class 'cell-blocked', no radial menu
+# ✓ Occupied col click — cell gets class 'cell-blocked', no radial menu
+# ✓ Placed suspect click — radial menu opens with 'Clear' option
+# ✓ Clear removes shadow from row and col
+# ✓ Victim click with unsatisfied clues — [data-testid="msg-clue-gate"] visible
+# ✓ Victim click with unsatisfied clues — [data-testid="guilty-stamp"] NOT visible
+# ✓ After satisfying all clues — victim click shows GUILTY stamp
+```
+
+```bash
+npx playwright test tests/e2e/undo.spec.ts
+# Must pass:
+# ✓ Ctrl+Z undoes last placement
+# ✓ Ctrl+Shift+Z redoes undone placement
+# ✓ Undo button click undoes last placement
+# ✓ Undo stack empty — undo button disabled
+```
+
+### Browser extension verification (required in PR body)
 
 ```
-1. Place all 8 suspects in positions that satisfy most but not all clues
-2. The victim cell is highlighted (all rows/cols blocked)
-3. Click the victim cell
-4. Expected: unsatisfied clues flash red in sidebar; message "Something doesn't add up..."
-5. Expected: NO body reveal, NO GUILTY stamp
-6. Player moves a suspect to satisfy all clues
-7. All clue texts show strikethrough
-8. Click victim cell again
-9. Expected: body reveal + GUILTY stamp for Elias (Level 1)
-```
+# Test wall blocking
+browser_click('[data-testid="cell-2-0"]')   # a Wall tile
+browser_screenshot()
+# → capture: no radial menu (radial-menu element absent or hidden)
 
-### Exact steps that must work
+# Test row blocking
+browser_click('[data-testid="cell-1-0"]')
+browser_click('[data-testid="suspect-option-A"]')
+browser_click('[data-testid="cell-3-0"]')   # same row as A (y=0)
+browser_screenshot()
+# → capture: cell flashes red, no radial menu
 
-```
-1. Click a Wall tile → nothing happens (no radial menu, no flash)
-2. Place suspect A in row 1 (y=0) at a valid cell
-3. Click any other cell in row 1 (y=0) → cell flashes red, no radial menu opens
-4. Click any other cell in the same column as A → cell flashes red, no radial menu opens
-5. Click the cell occupied by A → radial menu opens with "Clear" option
-6. Clear A → row and column shadows removed, that row/col become available again
+# Test clue gate
+# [place all 8 suspects in deliberately wrong positions]
+browser_click('[data-testid="victim-cell"]')
+browser_screenshot()
+# → capture: msg-clue-gate visible, guilty-stamp NOT visible, unsatisfied clues highlighted red
+
+browser_errors()
+# → must return zero errors
 ```
 
 ### Pass criteria
 
-- [ ] Wall tiles are unclickable (no radial menu, no flash)
-- [ ] Clicking a cell in an occupied row or column flashes the cell red and does NOT open the radial menu
-- [ ] Clicking a placed suspect opens the radial menu with a "Clear" option
-- [ ] Clearing a suspect removes the row/column shadow and makes those positions available again
-- [ ] Clicking the victim cell while any clue is unsatisfied: unsatisfied clues flash red, no GUILTY screen
-- [ ] After all clues satisfied: clicking victim cell triggers body reveal + GUILTY stamp
-- [ ] No JS errors thrown on any invalid placement attempt
+- [ ] `npx playwright test tests/e2e/placement.spec.ts` exits 0
+- [ ] `npx playwright test tests/e2e/undo.spec.ts` exits 0
+- [ ] PR body contains `browser_screenshot` showing: wall click (no menu), blocked row (red flash), clue gate (error state)
+- [ ] `browser_errors` shows zero JS errors
 
 ---
 
 ## Journey 5: All 4 levels are playable and uniquely solvable
 
-**The user story**: A player completes all 4 levels, each with its own theme and pixel-art assets.
+**The user story**: A player completes all 4 levels. Each has its own narrative, difficulty rating, and theme palette. The level select screen shows all 4 with correct metadata.
 
-### Exact steps that must work
+### Playwright verification
 
 ```bash
-# Solver verification (automated, part of CI)
 npm run verify-levels
-# Expected: "Level 001: UNIQUE SOLUTION ✓"
-# Expected: "Level 002: UNIQUE SOLUTION ✓"
-# Expected: "Level 003: UNIQUE SOLUTION ✓"
-# Expected: "Level 004: UNIQUE SOLUTION ✓"
+# Level 001: UNIQUE SOLUTION ✓
+# Level 002: UNIQUE SOLUTION ✓
+# Level 003: UNIQUE SOLUTION ✓
+# Level 004: UNIQUE SOLUTION ✓
 
-# Manual: level select screen shows 4 levels
-# Manual: each level loads with correct theme tileset
-# Manual: each level is completable following its clues
+npx playwright test tests/e2e/level2.spec.ts
+npx playwright test tests/e2e/level3.spec.ts
+npx playwright test tests/e2e/level4.spec.ts
+# Each must pass:
+# ✓ Full playthrough reaches GUILTY screen
+# ✓ GUILTY stamp names the correct killer
+# ✓ Narrative intro shown
+
+npx playwright test tests/e2e/save.spec.ts
+# ✓ Placing suspects auto-saves to localStorage
+# ✓ Refreshing page shows Resume? prompt
+# ✓ Accepting resume restores placements
+
+npx playwright test tests/e2e/share.spec.ts
+# ✓ Copy result button present after completion
+# ✓ Clipboard contains level name + killer name
+```
+
+### Browser extension verification (required in PR body)
+
+```
+# Level select screen
+browser_navigate("http://localhost:5173")
+browser_query('[data-testid="level-select"]', mode="text")
+# → must list all 4 levels with names and difficulty stars
+
+browser_screenshot()
+# → capture: level select showing 4 cards
+
+# Verify each level has distinct theme color
+browser_click('[data-testid="level-card-001"]')
+browser_screenshot()  # → Speakeasy dark palette
+browser_navigate("http://localhost:5173")
+browser_click('[data-testid="level-card-002"]')
+browser_screenshot()  # → Luxury Liner light palette
+# repeat for 003, 004
+
+# Verify killer identities
+# L1: Elias, L2: Gideon, L3: Harlow, L4: Fiona
+# [complete each level, screenshot GUILTY stamp]
+
+browser_errors()
+# → must return zero errors across all 4 levels
 ```
 
 ### Pass criteria
 
-- [ ] `npm run verify-levels` exits 0, all 4 levels report unique solution
-- [ ] Level select screen shows 4 entries with theme names
-- [ ] Each level renders the correct theme sprite sheet
-- [ ] Each level is completable end-to-end manually
+- [ ] `npm run verify-levels` exits 0, all 4 unique solutions confirmed
+- [ ] All 4 `level*.spec.ts` Playwright tests exit 0
+- [ ] `tests/e2e/save.spec.ts` and `tests/e2e/share.spec.ts` exit 0
+- [ ] PR body contains `browser_screenshot` of: level select screen, all 4 GUILTY stamps (one per level with correct killer name)
+- [ ] `browser_errors` shows zero JS errors across all levels
+- [ ] Level 2 killer: Gideon, Level 3 killer: Harlow, Level 4 killer: Fiona
 
 ---
 

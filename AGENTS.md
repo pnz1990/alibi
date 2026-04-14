@@ -48,8 +48,10 @@ REPORT_URL:     https://github.com/pnz1990/alibi/issues/1
 BOARD_URL:      ""                  # fill after GitHub Projects board creation
 BUILD_COMMAND:  npm run build
 TEST_COMMAND:   npm test
+E2E_COMMAND:    npm run test:e2e
 LINT_COMMAND:   npm run lint
 VULN_COMMAND:   ""
+DEV_SERVER:     npm run dev         # starts Vite dev server on http://localhost:5173
 ```
 
 ---
@@ -74,26 +76,42 @@ src/
     grid.ts           # 9x9 grid model: tile types, room zones, placement
     logic.ts          # Logic engine: Rule of One (Sudoku), spatial mask, clue eval
     clues.ts          # Clue type definitions + evaluators (adjacency, room, LoS, distance)
-    solver.ts         # Optional: constraint solver to verify level solvability
+    solver.ts         # Constraint solver to verify level solvability
   render/
     canvas.ts         # Canvas renderer: grid, sprites, shadows, UI overlays
     sprites.ts        # Sprite sheet loader and tile blit
     ui.ts             # Sidebar case file, clue strikethrough, radial menus
+    overlay.ts        # How-to-play modal
   game/
-    state.ts          # Game state machine: idle → placing → solved → reveal → accusation
+    state.ts          # Game state machine: idle → narrative → placing → solved → reveal → accusation → end
     input.ts          # Click/tap event handling → radial menu → placement
     levels.ts         # Level loader from JSON
+    undo.ts           # Undo/redo stack
+    sound.ts          # Web Audio API sound synthesis
+    save.ts           # localStorage progress persistence
+    share.ts          # Completion card generator
   levels/             # Level JSON files (one per theme)
     001-speakeasy.json
     002-luxury-liner.json
     003-art-gallery.json
     004-greenhouse.json
   assets/
-    sprites/          # Pixel-art sprite sheets (PNG)
+    sprites/          # Pixel-art sprite sheets (PNG, optional for v1.0)
     fonts/            # Pixel font (bitmap)
   main.ts             # Entry point
+tests/
+  e2e/                # Playwright end-to-end tests — SEE §E2E Testing below
+    level1.spec.ts    # Full playthrough of Level 1 (The Speakeasy)
+    level2.spec.ts    # Full playthrough of Level 2 (The Luxury Liner)
+    level3.spec.ts    # Full playthrough of Level 3 (The Art Gallery)
+    level4.spec.ts    # Full playthrough of Level 4 (The Greenhouse)
+    placement.spec.ts # Rule of One blocking, wall tile blocking, clue gate
+    undo.spec.ts      # Undo/redo flows
+    save.spec.ts      # localStorage save/restore
+    share.spec.ts     # Completion card copy
 index.html
 vite.config.ts
+playwright.config.ts
 tsconfig.json
 package.json
 ```
@@ -254,6 +272,10 @@ All issues must have labels from each of these groups:
 | Level JSON missing `difficulty` field | QA |
 | Sound implemented with audio files instead of Web Audio API synthesis | QA |
 | Undo stack not wired to `Ctrl/Cmd+Z` keyboard shortcut | QA |
+| Interactive element missing `data-testid` attribute | QA — blocks Playwright tests |
+| Playwright test using pixel-coordinate `page.click('canvas', {position:{x,y}})` | QA — brittle, banned |
+| PR body missing `browser_screenshot` evidence | QA |
+| PR opened without running `npm run test:e2e` locally | QA |
 
 ## Files Agents Must Not Modify
 
@@ -262,3 +284,144 @@ All issues must have labels from each of these groups:
 - `AGENTS.md`
 - `.specify/memory/constitution.md`
 - `.specify/memory/sdlc.md`
+
+---
+
+## E2E Testing — MANDATORY
+
+This is a browser game. Unit tests alone do not prove it works. **Every feature that affects the browser must be covered by a Playwright e2e test AND verified visually using the OpenCode browser extension before a PR is opened.**
+
+### Two-tool approach
+
+| Tool | When to use | What it proves |
+|---|---|---|
+| **Playwright** (`npm run test:e2e`) | CI-automated, runs on every PR | The game logic, DOM state, and interaction flow work correctly in a headless browser |
+| **OpenCode browser extension** | During development, before pushing | The game actually looks correct — visuals, animations, timing, canvas rendering |
+
+**Neither tool alone is sufficient.** Playwright cannot see the canvas pixel output. The browser extension cannot run in CI. Use both.
+
+### Playwright setup
+
+Playwright is installed as a dev dependency (`@playwright/test`). Browsers are installed with `npx playwright install chromium`.
+
+```bash
+npm run dev &            # start Vite dev server (required for e2e tests)
+npm run test:e2e         # run all Playwright tests against http://localhost:5173
+npx playwright test --headed  # run with visible browser (useful during development)
+npx playwright test tests/e2e/level1.spec.ts  # run a single spec
+```
+
+`playwright.config.ts` targets `http://localhost:5173` (Vite dev server) for local runs and `https://pnz1990.github.io/alibi/` for the `--project=production` run.
+
+### Playwright test contracts
+
+Every e2e test must use **data-testid attributes** on DOM elements for selectors. The canvas alone is not sufficient — wrap interactive elements and status indicators in overlay HTML elements with `data-testid`. Required `data-testid` values:
+
+| Element | `data-testid` |
+|---|---|
+| Canvas element | `game-canvas` |
+| Radial menu container | `radial-menu` |
+| Each suspect option in radial menu | `suspect-option-[A-H]` |
+| Clear option in radial menu | `suspect-option-clear` |
+| Each clue row in sidebar | `clue-[id]` (e.g. `clue-c1`) |
+| Satisfied clue (has strikethrough) | add class `clue-satisfied` |
+| Unsatisfied clue flashing | add class `clue-error` |
+| Victim cell highlight overlay | `victim-cell` |
+| GUILTY stamp element | `guilty-stamp` |
+| Undo button | `btn-undo` |
+| Redo button | `btn-redo` |
+| Mute button | `btn-mute` |
+| Share/copy button | `btn-share` |
+| How-to-play button | `btn-help` |
+| How-to-play modal | `overlay-howtoplay` |
+| Level select screen | `level-select` |
+| Level card (each) | `level-card-[id]` (e.g. `level-card-001`) |
+| "Something doesn't add up" message | `msg-clue-gate` |
+| Narrative intro screen | `narrative-intro` |
+| Resume prompt | `prompt-resume` |
+
+**Anti-pattern**: `page.click('canvas')` with pixel coordinates. This is brittle and unmaintainable. Use `data-testid` on overlay elements for all interaction.
+
+### Playwright test pattern for a level playthrough
+
+Each level has a known solution (from `docs/level-designs.md`). Tests use the solution directly:
+
+```typescript
+// tests/e2e/level1.spec.ts
+import { test, expect } from '@playwright/test';
+import level1 from '../../src/levels/001-speakeasy.json';
+
+test('Level 1 — full playthrough reaches GUILTY screen', async ({ page }) => {
+  await page.goto('/');
+  await page.click('[data-testid="level-card-001"]');
+  await page.click('[data-testid="narrative-intro"] button'); // dismiss intro
+
+  // Place each suspect at solution position
+  for (const [suspectId, pos] of Object.entries(level1.solution)) {
+    if (suspectId === 'victim') continue;
+    await page.click(`[data-testid="cell-${pos.x}-${pos.y}"]`);
+    await page.click(`[data-testid="suspect-option-${suspectId}"]`);
+  }
+
+  // All clues should be satisfied
+  for (const clue of level1.clues) {
+    await expect(page.locator(`[data-testid="clue-${clue.id}"]`))
+      .toHaveClass(/clue-satisfied/);
+  }
+
+  // Click victim cell
+  await page.click(`[data-testid="victim-cell"]`);
+
+  // GUILTY stamp must appear
+  await expect(page.locator('[data-testid="guilty-stamp"]')).toBeVisible();
+  await expect(page.locator('[data-testid="guilty-stamp"]')).toContainText('Elias');
+});
+```
+
+Each cell must also have `data-testid="cell-{x}-{y}"` on its overlay element (not the canvas).
+
+### Using the OpenCode browser extension during development
+
+Before opening a PR, the engineer MUST use the browser extension to verify visually:
+
+1. Start the dev server: `npm run dev`
+2. Open `http://localhost:5173` in the browser connected to OpenCode
+3. Use `browser_screenshot` to capture the current state
+4. Use `browser_click` on `[data-testid]` selectors to interact
+5. Use `browser_query` to read DOM state (clue satisfaction, game state)
+6. Use `browser_console` to check for JS errors
+7. Use `browser_errors` to verify zero JS errors after each interaction
+
+**Minimum browser extension verification checklist before every PR:**
+
+```
+[ ] browser_screenshot after page load — grid renders, no blank canvas
+[ ] browser_screenshot after placing suspect A — shadow visible on row + col
+[ ] browser_screenshot after placing all 8 suspects — victim cell highlighted
+[ ] browser_screenshot after clicking victim cell with unsatisfied clues — error state visible
+[ ] browser_screenshot after correct solution + victim click — GUILTY stamp visible
+[ ] browser_errors — zero JS errors throughout
+[ ] browser_console — no warnings about missing assets or unhandled promises
+```
+
+The engineer must paste at least one `browser_screenshot` into the PR body as visual evidence.
+
+### CI integration
+
+`npm run test:e2e` runs in GitHub Actions on every PR using:
+```yaml
+- run: npm run build
+- run: npm run dev &
+- run: npx playwright install chromium --with-deps
+- run: npm run test:e2e
+```
+
+The CI does NOT use the browser extension (that requires a desktop session). CI uses headless Playwright only.
+
+### QA checklist additions (browser-specific)
+
+QA must verify on every PR that touches rendering, input, or game state:
+- [ ] All required `data-testid` attributes are present in the DOM
+- [ ] Playwright e2e tests pass in CI (`npm run test:e2e` green)
+- [ ] PR body contains at least one `browser_screenshot` showing the feature working
+- [ ] `browser_errors` output in PR body shows zero JS errors
