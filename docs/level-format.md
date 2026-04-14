@@ -31,10 +31,16 @@ row 9  (y=8)  .  .  .  .  .  .  .  .  .
   "id": "001",                        // zero-padded level number
   "slug": "speakeasy",               // URL-safe name
   "title": "The Speakeasy",          // display title
-  "theme": "speakeasy",              // sprite sheet key (matches assets/sprites/<theme>/)
+  "difficulty": "easy",              // "easy" | "medium" | "hard" — shown as 1/2/3 stars on level select
+  "theme": "speakeasy",              // color palette key (matches theme flat-color definitions)
+  "narrative": {
+    "intro": "...",                  // 2-3 noir sentences shown before grid. REQUIRED, no placeholder text.
+    "victim_found": "...",           // 1 sentence shown when victim cell is clicked. REQUIRED.
+    "guilty_text": "..."             // 1 sentence naming the killer. REQUIRED.
+  },
   "victim": {
     "name": "Victor",                // victim's name (starts with V)
-    "sprite": "victim-victor"        // sprite key within theme sheet
+    "sprite": "victim-victor"        // sprite key; falls back to "?" placeholder if file absent
   },
   "grid": { ... },                   // 9×9 tile map — see Grid section
   "zones": [ ... ],                  // room zone definitions — see Zones section

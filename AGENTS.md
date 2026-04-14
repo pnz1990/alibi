@@ -128,6 +128,60 @@ package.json
 3. Victim sprite appears at that cell.
 4. Engine identifies the suspect sharing that Room Zone — that is the killer.
 5. "GUILTY" stamp slams onto screen.
+6. A shareable completion card is generated and shown: level name, time taken, and a text-art summary (copyable for social sharing, à la Wordle).
+
+### Undo / Redo
+- Every placement and clear action is recorded in an undo stack (max 50 entries).
+- **Undo button** in UI (and keyboard shortcut `Ctrl+Z` / `Cmd+Z`) reverts the last placement or clear.
+- **Redo** (`Ctrl+Shift+Z` / `Cmd+Shift+Z`) re-applies an undone action.
+- Undo stack is reset on level start and level reset.
+- There is no penalty for undoing. Players can undo freely.
+
+### Sound Design
+- All sounds are generated with the **Web Audio API** — no audio files required in the bundle (zero asset size cost).
+- Sound events:
+  - `place`: soft click (short sine burst, ~80ms)
+  - `clear`: reversed click (same burst, time-reversed)
+  - `clue-satisfied`: soft chime (two ascending tones)
+  - `blocked`: low thud (short noise burst)
+  - `guilty-stamp`: dramatic bass hit + reverb tail
+  - `victim-reveal`: rising tension arpeggio
+- Sounds are enabled by default. A mute toggle (🔇) in the top-right corner persists to `localStorage`.
+
+### How to Play Overlay
+- Shown automatically on **first visit** only (tracked via `localStorage`).
+- A modal overlay with 4 slides: (1) game concept, (2) placing suspects, (3) reading clues, (4) finding the killer.
+- Dismissable with Escape or a "Got it →" button.
+- Always accessible via a "?" button in the UI corner.
+
+### Level Narrative
+Each level JSON includes a `narrative` object with:
+- `intro`: 2–3 sentences of noir flavor text, read-aloud style. Shown before the grid appears.
+- `victim_found`: 1 sentence shown when the victim cell is clicked ("The body of Vincent was found slumped behind the bar...")
+- `guilty_text`: 1 sentence for the accusation screen ("Elias — you were in the Entrance when the shot rang out.")
+
+Narrative text is authored in `docs/level-designs.md` and must be included in the level JSON. QA blocks PRs where `narrative` is missing or has placeholder text like "TODO".
+
+### Progress Save
+- Current placement state is auto-saved to `localStorage` every time a suspect is placed or cleared.
+- Key: `alibi_progress_<level-id>`. Value: JSON of current placements.
+- On level load: if a save exists for that level, it is restored automatically with a "Resume?" prompt.
+- Completing a level clears its save. Resetting a level clears its save.
+
+### Shareability
+On completing a level, the game generates a shareable text card:
+```
+ALIBI — The Speakeasy 🔍
+Solved in 4m 32s
+🟥🟥🟥🟥🟥🟥🟥🟥
+Killer: Elias
+alibi.pnz1990.com
+```
+A "Copy result" button copies this to the clipboard. No social API required.
+
+### Difficulty Rating
+Each level JSON includes a `difficulty` field: `"easy"` | `"medium"` | `"hard"`.
+The level select screen shows this as a star rating (1–3 stars). Level order within the select is always by difficulty ascending.
 
 ---
 
@@ -158,7 +212,7 @@ When a player tries to place a suspect in a row or column already occupied by an
 
 ## Win Condition — Clue Satisfaction Gate
 
-- The "victim cell" (the single remaining unblocked empty cell) is **always highlighte** once all 8 suspects are placed.
+- The "victim cell" (the single remaining unblocked empty cell) is **always highlighted** once all 8 suspects are placed.
 - **If any clue is unsatisfied when the player clicks the victim cell**: the accusation screen does NOT trigger. Instead, unsatisfied clues in the sidebar flash red and a message reads "Something doesn't add up..." The player must fix the clue violations first.
 - **Only when all clues are satisfied AND the player clicks the victim cell** does the body-reveal + GUILTY sequence play.
 
@@ -196,6 +250,10 @@ All issues must have labels from each of these groups:
 | Level JSON with non-unique solution (solver must verify) | QA |
 | Canvas state mutation outside `canvas.ts` | QA |
 | External npm runtime dependency added to bundle | QA |
+| Level JSON missing `narrative` field or with placeholder text ("TODO", "...") | QA |
+| Level JSON missing `difficulty` field | QA |
+| Sound implemented with audio files instead of Web Audio API synthesis | QA |
+| Undo stack not wired to `Ctrl/Cmd+Z` keyboard shortcut | QA |
 
 ## Files Agents Must Not Modify
 

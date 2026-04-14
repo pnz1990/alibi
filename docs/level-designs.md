@@ -21,7 +21,18 @@ A cell is written as `Col-Row`, e.g. `E-4` = x=4, y=3.
 
 **Theme**: Dark wood floors, brass railings, velvet booths. A 1920s underground bar.
 **Victim**: Vincent
-**Killer reveal**: The suspect in the same zone as Vincent.
+**Killer**: Elias (ENTRANCE zone)
+**Difficulty**: easy
+
+### Narrative
+
+```json
+"narrative": {
+  "intro": "The password was 'forgotten memories.' Now someone's made sure Vincent forgets everything. Eight suspects were present when the shot rang out — none of them left before you arrived. The alibis don't add up. Someone is lying.",
+  "victim_found": "Vincent's body is slumped against the wall near the Entrance — a single shot, close range. He never made it out.",
+  "guilty_text": "Elias. You were near the Entrance when the shot rang out. The powder burns on your sleeve don't lie."
+}
+```
 
 ### Zone Layout
 
@@ -360,7 +371,18 @@ These 9 clues constrain: A to BAR, B.y=1, C to KITCHEN, D to VAULT, E to BACKROO
 
 **Theme**: Teak decking, lifeboats, porthole views. An ocean liner crossing the Atlantic.
 **Victim**: Vera
-**Killer**: The suspect in the same zone as Vera.
+**Killer**: Gideon (ENGINE zone)
+**Difficulty**: medium
+
+### Narrative
+
+```json
+"narrative": {
+  "intro": "Three days into the crossing and Vera has gone missing. The Captain sealed the ship — no one goes ashore until this is solved. Eight passengers were seen in different parts of the ship during the final hour. Their stories almost agree. Almost.",
+  "victim_found": "Vera was found in the engine room, wedged between two boilers. The heat had been hiding her for hours.",
+  "guilty_text": "Gideon. The grease on your hands wasn't from the meal. You were in that engine room, and so was Vera."
+}
+```
 
 ### Zones
 
@@ -431,7 +453,18 @@ Note: these 8 clues fix each suspect to a zone but not to exact cells. The Sudok
 
 **Theme**: White tiles, marble pedestals, velvet ropes. A private vernissage gone wrong.
 **Victim**: Victor
-**Killer reveal**: The suspect in the same gallery wing as Victor.
+**Killer**: Harlow (BACK-OFFICE zone)
+**Difficulty**: medium
+
+### Narrative
+
+```json
+"narrative": {
+  "intro": "A private opening. Champagne, whispers, and now — a body. Victor was the curator. Someone at this party knew exactly what they were doing. Eight guests signed the register. None of them are leaving until you find the one who didn't come for the art.",
+  "victim_found": "Victor is slumped behind a filing cabinet in the back office. The painting he was holding is undamaged. Whatever he knew, someone made sure he couldn't say it.",
+  "guilty_text": "Harlow. The back office was staff-only, and you had no business being there. Neither did Victor — until you made sure of it."
+}
+```
 
 ### Zones
 
@@ -522,7 +555,18 @@ H at (8,6) → BACK-OFFICE ✓. Victim at (4,8) → BACK-OFFICE ✓. **Killer: H
 
 **Theme**: Cobblestone paths, dense ferns, glass partitions. A Victorian botanical conservatory.
 **Victim**: Violet
-**Killer reveal**: The suspect in Violet's botanical section.
+**Killer**: Fiona (POTTING-SHED zone)
+**Difficulty**: hard
+
+### Narrative
+
+```json
+"narrative": {
+  "intro": "The Harrington Conservatory has seen a century of society events. Tonight it saw a murder. Violet was found among the orchids — but the orchids weren't where she was killed. Someone moved her. Eight people were inside when the gates were locked. The ferns remember everything.",
+  "victim_found": "Violet's body was hidden behind the potting shed, surrounded by soil that doesn't match the orchid room. She was moved here after the fact.",
+  "guilty_text": "Fiona. The soil on your gloves is from the potting shed. You were the only one who worked there — and worked quickly."
+}
+```
 
 ### Zones
 
