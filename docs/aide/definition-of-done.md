@@ -1,175 +1,157 @@
 # Definition of Done
 
 > The project is complete when every journey below passes end-to-end.
-> Journeys are verified with Playwright AND the OpenCode browser extension. No journey is ✅ without both.
+> Every journey requires BOTH Playwright (automated, CI) AND browser extension (visual, in PR body).
 
 ---
 
-## How to verify
-
-```bash
-npm run dev &              # Vite dev server on http://localhost:5173
-npm run test:e2e           # all Playwright tests
-npx playwright test tests/e2e/gameplay.spec.ts --headed  # visual
-```
-
-Browser extension verification runs during development before each PR. Screenshots go in the PR body.
-
----
-
-## Journey 1: Project builds, tests pass, deploys
+## Journey 1: Build, test, deploy
 
 ```bash
 npm run build && npm test && npm run lint && npm run test:e2e
-# All must exit 0
+# All exit 0
 
-# After CI merges to main:
-# https://pnz1990.github.io/alibi/ must load
+# After CI merges to main: https://pnz1990.github.io/alibi/ loads
 ```
 
 Browser extension:
 ```
 browser_navigate("http://localhost:5173")
-browser_screenshot()          → canvas visible, no blank screen
-browser_errors()               → zero JS errors
+browser_screenshot()   → home screen with Campaign / Quick Play / Daily Case visible
+browser_errors()       → zero
 ```
 
 **Pass criteria:**
-- [ ] All 4 npm commands exit 0
-- [ ] `[data-testid="game-canvas"]` present in DOM
-- [ ] GitHub Pages URL loads after CI deploy
+- [ ] All npm commands exit 0
+- [ ] `[data-testid="screen-home"]` present in DOM
+- [ ] Three mode buttons visible
+- [ ] GitHub Pages loads after CI deploy
 - [ ] Zero JS errors on load
 
 ---
 
-## Journey 2: Generator produces valid unique-solution puzzles
+## Journey 2: Generator produces valid unique-solution puzzles across all themes and difficulties
 
 ```bash
 npm test
-# Must see:
-# ✓ generator: 1000 seeds produce unique-solution puzzles
+# Must see all passing:
+# ✓ generator: 1000 seeds × stub theme → unique solutions
+# ✓ generator: all 10 themes × 3 difficulties × 50 seeds → unique solutions
 # ✓ solver: known puzzle has exactly 1 solution
-# ✓ all 14 clue evaluators pass
-# ✓ Rule of One enforced correctly
-# ✓ victim cell derivation correct
+# ✓ all 16 clue evaluators pass test suites
+# ✓ Rule of One: occupied row/col returns blocked
+# ✓ victim cell derivation correct for irregular floor plans
+# ✓ generator throws PuzzleGenerationError after 20 retries on impossible floor plan
 ```
 
 **Pass criteria:**
-- [ ] `npm test` exits 0, all engine tests green
-- [ ] Generator: 1000 seeds × Coffee Shop theme → all unique solutions
+- [ ] `npm test` exits 0
 - [ ] Engine coverage ≥ 90%
+- [ ] 1500 puzzles (10 themes × 3 difficulties × 50 seeds) all unique solutions, no timeouts
 
 ---
 
-## Journey 3: Player completes a generated Coffee Shop puzzle end-to-end
+## Journey 3: Player completes a Coffee Shop puzzle (Quick Play)
 
 ```bash
 npx playwright test tests/e2e/gameplay.spec.ts
-# ✓ narrative intro shown
+# ✓ narrative intro shown on puzzle load
 # ✓ full playthrough reaches GUILTY screen
-# ✓ GUILTY names the correct killer
-# ✓ share card appears
+# ✓ GUILTY names the killer from window.__alibi_puzzle.killer
+# ✓ share card appears after GUILTY
 # ✓ undo reverses last placement
+# ✓ clue gate blocks GUILTY when clues unsatisfied
 ```
 
-Browser extension (required in PR body):
+Browser extension (screenshots required in PR body):
 ```
-browser_navigate("http://localhost:5173/?theme=coffee-shop&seed=12345")
-browser_screenshot()   → narrative intro visible
-browser_click('[data-testid="narrative-intro"] button')
-browser_screenshot()   → 6×6 grid with Coffee Shop floor plan, suspect cards, clue cards
-# [place suspects at solution positions from window.__alibi_puzzle.solution]
-browser_screenshot()   → all suspects placed, victim cell highlighted, all clues struck through
+browser_navigate("http://localhost:5173")
+browser_click('[data-testid="btn-quickplay"]')
+browser_click('[data-testid="theme-card-coffee-shop"]')
+browser_click('[data-testid="difficulty-easy"]')
+browser_screenshot()     → game screen with Coffee Shop floor plan, suspect cards, clue cards
+# [dismiss narrative intro]
+# [place suspects at window.__alibi_puzzle.solution positions]
+browser_screenshot()     → all suspects placed, victim cell highlighted, clues struck through
 browser_click('[data-testid="victim-cell"]')
-browser_screenshot()   → GUILTY stamp visible with killer name
-browser_errors()       → zero
+browser_screenshot()     → GUILTY stamp with killer name visible
+browser_errors()         → zero
 ```
 
 **Pass criteria:**
-- [ ] `gameplay.spec.ts` exits 0
-- [ ] PR body has: narrative screenshot, grid screenshot, GUILTY screenshot
-- [ ] GUILTY stamp shows correct killer name (matches `window.__alibi_puzzle.killer`)
-- [ ] Share card appears after GUILTY
-- [ ] `browser_errors` zero throughout
-
----
-
-## Journey 4: Invalid placements blocked; clue gate enforced; undo works
-
-```bash
-npx playwright test tests/e2e/undo.spec.ts
-# ✓ Ctrl+Z undoes last placement
-# ✓ undo button click works
-# ✓ blocked row/col → cell-blocked class, no menu
-# ✓ wall click → no reaction
-# ✓ victim click with unsatisfied clues → msg-clue-gate visible, no GUILTY
-```
-
-Browser extension:
-```
-# Test clue gate: place all suspects in wrong positions → click victim cell
-browser_screenshot()   → msg-clue-gate visible, unsatisfied clues highlighted red
-
-# Test undo
-browser_click('[data-testid="btn-undo"]')
-browser_screenshot()   → last placement removed, shadow gone
-
-browser_errors()       → zero
-```
-
-**Pass criteria:**
-- [ ] `undo.spec.ts` exits 0
-- [ ] Wall cells produce no reaction on click
-- [ ] Blocked row/col produces red flash, no radial menu
-- [ ] Clue gate blocks GUILTY when clues unsatisfied
-- [ ] Undo removes last placement and its shadow
+- [ ] `gameplay.spec.ts` exits 0 for Coffee Shop (Easy/Medium/Hard)
+- [ ] PR body: game screen screenshot, solved screenshot, GUILTY screenshot
+- [ ] Killer name on GUILTY matches `window.__alibi_puzzle.killer`
 - [ ] Zero JS errors
 
 ---
 
-## Journey 5: All 4 themes playable; infinite generation works; seed sharing works
+## Journey 4: Campaign mode — progress, persistence, rank
 
 ```bash
-npx playwright test tests/e2e/gameplay.spec.ts  # parameterized across all 4 themes
-# ✓ Coffee Shop full playthrough → GUILTY
-# ✓ Bookstore full playthrough → GUILTY
-# ✓ Backyard full playthrough → GUILTY
-# ✓ Holiday Shopping full playthrough → GUILTY
-
-npx playwright test tests/e2e/save.spec.ts
-# ✓ placement auto-saved to localStorage
-# ✓ reload shows Resume? prompt
-# ✓ same seed+theme URL reproduces identical puzzle
-
-npx playwright test tests/e2e/share.spec.ts
-# ✓ copy result button copies text card with killer name
+npx playwright test tests/e2e/campaign.spec.ts
+# ✓ New Campaign creates 12 cases with correct difficulty progression (4E/4M/4H)
+# ✓ Completing Case 1 advances to Case 2, saves to localStorage
+# ✓ Page reload restores campaign state, current case still accessible
+# ✓ 3 save slots are independent — completing Case 1 in slot 1 does not affect slot 2
+# ✓ Completing 4 cases → rank advances to Investigator
+# ✓ Campaign board shows correct status per case card
 ```
 
 Browser extension:
 ```
-browser_click('[data-testid="theme-select"]')
-browser_screenshot()       → all 4 themes listed
-
-# For each theme: generate puzzle, complete it, screenshot GUILTY stamp
-browser_navigate("/?theme=bookstore&seed=99999")
-# [solve] → browser_screenshot() of GUILTY
-
-browser_click('[data-testid="btn-new-puzzle"]')
-browser_screenshot()       → new puzzle loaded (different from previous)
-
-# Test seed sharing
-# Copy URL hash → open in new page → same puzzle
-browser_errors()           → zero across all themes
+browser_click('[data-testid="btn-campaign"]')
+browser_screenshot()     → campaign board with 12 case cards, Case 1 unlocked
+browser_click('[data-testid="case-card-0"]')
+# [solve puzzle]
+browser_screenshot()     → after solve: Case 1 shows ✅, Case 2 unlocked
+# [reload page]
+browser_navigate("http://localhost:5173")
+browser_click('[data-testid="btn-campaign"]')
+browser_screenshot()     → campaign state persisted, Case 1 still ✅
+browser_errors()         → zero
 ```
 
 **Pass criteria:**
-- [ ] All 4 theme playthroughs pass Playwright
-- [ ] `save.spec.ts` and `share.spec.ts` exit 0
-- [ ] Same seed+theme always reproduces identical puzzle (deterministic)
-- [ ] "New Puzzle" produces a different puzzle
-- [ ] Theme selector shows all 4 themes
-- [ ] PR body: 4× GUILTY stamp screenshots (one per theme)
-- [ ] Zero JS errors across all themes
+- [ ] `campaign.spec.ts` exits 0
+- [ ] Case progression and persistence correct
+- [ ] Rank advances correctly
+- [ ] 3 save slots independent
+- [ ] PR body: campaign board screenshot before + after first solve
+
+---
+
+## Journey 5: Daily Case + streak + all 10 themes playable
+
+```bash
+npx playwright test tests/e2e/daily.spec.ts
+# ✓ Same date → same puzzle (deterministic seed)
+# ✓ Streak increments on consecutive days
+# ✓ Streak resets after gap day
+
+npx playwright test tests/e2e/gameplay.spec.ts  # parameterized
+# ✓ All 10 themes × Easy difficulty → unique solution, GUILTY screen reached
+# ✓ All 10 themes × Medium → same
+# ✓ All 10 themes × Hard → same
+```
+
+Browser extension:
+```
+browser_screenshot()      → home screen shows Daily Case card with today's theme + difficulty
+browser_click('[data-testid="btn-daily"]')
+browser_screenshot()      → daily puzzle loaded
+# [solve it]
+browser_screenshot()      → GUILTY + share card showing date, theme, time, streak
+# Navigate to each theme in Quick Play, screenshot GUILTY stamp for all 10 themes
+browser_errors()          → zero across all themes
+```
+
+**Pass criteria:**
+- [ ] `daily.spec.ts` exits 0
+- [ ] All 10 themes GUILTY reached in Playwright
+- [ ] PR body: 10× GUILTY stamps (one per theme) + daily completion card
+- [ ] Daily seed deterministic (same output across two test runs on same date)
+- [ ] Zero JS errors across all themes and difficulties
 
 ---
 
@@ -178,7 +160,7 @@ browser_errors()           → zero across all themes
 | Journey | Status | Last checked | Notes |
 |---|---|---|---|
 | 1: Build + deploy | ❌ Not started | — | Requires Stage 0 |
-| 2: Generator valid | ❌ Not started | — | Requires Stage 1 |
+| 2: Generator valid across all themes | ❌ Not started | — | Requires Stage 1 + Stages 4–5 |
 | 3: Coffee Shop playthrough | ❌ Not started | — | Requires Stage 2 |
-| 4: Invalid placement + clue gate + undo | ❌ Not started | — | Requires Stage 2 |
-| 5: All 4 themes + infinite gen | ❌ Not started | — | Requires Stage 3 |
+| 4: Campaign mode + persistence | ❌ Not started | — | Requires Stage 3 |
+| 5: Daily Case + all 10 themes | ❌ Not started | — | Requires Stages 4–5 |

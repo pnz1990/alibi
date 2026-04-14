@@ -2,16 +2,17 @@
 
 ## What This Is
 
-ALIBI is a browser murder mystery logic-deduction game inspired by the book Murdoku (Manuel Garand). Players place suspects on a top-down illustrated floor plan by satisfying natural-language "alibis." Every puzzle is procedurally generated from a theme template. Infinite replayability. Statically hosted on GitHub Pages.
+ALIBI is a browser murder mystery logic-deduction game with three play modes: Campaign (12 escalating cases per run), Quick Play (pick theme + difficulty), and Daily Case (same puzzle worldwide each day). Procedurally generated from seeds. 10 themes. 3 difficulty variants per theme. Progress stored in localStorage. Statically hosted on GitHub Pages.
 
-**Status**: Pre-release. Architecture complete. Implementation not started.
+Inspired by the book Murdoku by Manuel Garand. Read `docs/aide/vision.md` before starting any implementation work.
+
+**Status**: Pre-release. Architecture and product design complete. Implementation not started.
 
 ---
 
 ## SDLC Process
 
 The team process lives in `.specify/memory/sdlc.md` — read it.
-This file contains only project-specific context.
 
 ---
 
@@ -28,7 +29,7 @@ All sessions share GitHub account pnz1990. Every GitHub comment, issue, and PR r
 | N+3 | Product Manager | `[📋 PM]` | `PM` |
 
 ```bash
-export AGENT_ID="COORDINATOR"  # change per session
+export AGENT_ID="COORDINATOR"
 ```
 
 ---
@@ -54,27 +55,23 @@ DEV_SERVER:     npm run dev
 
 ## Architecture
 
-ALIBI is a **frontend-only** SPA. No server, no database, no runtime API calls.
+**Frontend-only SPA.** No server, no database, no runtime API calls. Everything runs in the browser. localStorage is the only persistence layer.
 
-**Stack**: TypeScript + Vite. Rendered to HTML5 Canvas 2D (pixel-perfect integer scaling). Puzzle state in plain TS objects. Seed in URL hash.
+**Stack**: TypeScript + Vite. HTML5 Canvas 2D for the game grid and sprites. DOM + CSS for UI chrome (sidebar, modals, home screen). Seed in URL hash.
 
 **Core pipeline:**
 ```
-Seed (PRNG)
-  → Theme Template (floor plan, sprite catalog, name set)
-    → Generator (place suspects, place objects, verify constraint, generate clues)
-      → Puzzle (grid state, clue list, solution)
-        → Renderer (canvas + DOM overlay)
-          → Input (click → radial menu → placement)
-            → Win condition check
+Seed + Theme + Difficulty
+  → FloorPlan (static per theme+difficulty variant)
+    → Generator (place suspects, generate clues, verify uniqueness)
+      → Puzzle (grid, suspects, clues, solution, killer)
+        → Renderer (canvas grid + DOM overlays)
+          → Input (click → placement)
+            → Logic validation
+              → Win sequence
 ```
 
-**Grid**: Variable size per theme — width W (3–10), height H (3–10). Not necessarily square. Columns 1–W (x=0–W-1, left to right). Rows 1–H (y=0–H-1, top to bottom). The bounding rectangle is fixed per theme; rooms within it are arbitrary polygons defined by which cells belong to them.
-**North = smaller y. South = larger y.**
-
-**Suspects**: Equal to the number of columns W (one per column, one per row = Latin square). Typically 5–9.
-**Victim**: Always the last remaining empty valid cell after all suspects are placed.
-**Killer**: The suspect whose placed cell shares a Room Zone with the victim's cell.
+**Grid**: Variable W×H per theme+difficulty variant. North = smaller y. South = larger y. Rule of One spans the entire bounding rectangle.
 
 ---
 
@@ -83,54 +80,62 @@ Seed (PRNG)
 ```
 src/
   engine/
-    grid.ts           # Variable W×H grid model: tile types, zones, object placement
+    grid.ts           # Grid model: tile types, zones, placement validation
     logic.ts          # Rule of One, spatial mask, win condition
-    clues.ts          # All clue type evaluators — pure functions
-    generator.ts      # Procedural puzzle generator (seeded PRNG)
-    solver.ts         # Constraint solver — verifies unique solution
+    clues.ts          # All 14 clue type evaluators — pure functions
+    generator.ts      # Seeded PRNG procedural generator
+    solver.ts         # Constraint solver — verifies unique solution count
   render/
-    canvas.ts         # Canvas renderer: tiles, sprites, shadows, overlays
-    sprites.ts        # SVG sprite loader and blit (floor objects)
-    portraits.ts      # Suspect portrait card renderer
-    ui.ts             # Sidebar: clue cards, satisfaction strikethrough
-    overlay.ts        # How-to-play modal, narrative intro, share card
+    canvas.ts         # Canvas renderer: tiles, sprites, shadows
+    sprites.ts        # SVG sprite loader (Vite ?raw bundling)
+    portraits.ts      # Portrait card renderer
+    ui.ts             # Sidebar: clue cards with live strikethrough
+    overlay.ts        # Modals: how-to-play, narrative, share card, GUILTY
   game/
-    state.ts          # State machine: idle → narrative → placing → solved → reveal → guilty → end
+    state.ts          # State machine: home → mode-select → playing → guilty → end
     input.ts          # Click → radial menu → placement; keyboard nav
-    undo.ts           # Undo/redo stack
-    sound.ts          # Web Audio API synthesis (no audio files)
-    save.ts           # localStorage seed persistence + placement auto-save
-    share.ts          # Completion card + clipboard copy
-  themes/             # One module per theme
+    undo.ts           # Undo/redo stack (max 50)
+    sound.ts          # Web Audio API synthesis — no audio files
+    share.ts          # Completion card generator + clipboard copy
+  modes/
+    campaign.ts       # Campaign mode: 12-case sequence, seed generation, rank
+    quickplay.ts      # Quick Play mode: random seed per play
+    daily.ts          # Daily Case: seed = date string hash
+  storage/
+    progress.ts       # localStorage read/write for all persistence
+    schema.ts         # TypeScript types for all stored data
+  screens/
+    home.ts           # Home screen: Campaign / Quick Play / Daily Case
+    campaign-board.ts # Campaign case file board (12 case cards)
+    theme-select.ts   # Theme + difficulty picker for Quick Play
+    game.ts           # The actual puzzle screen
+  themes/
     coffee-shop.ts
     bookstore.ts
     backyard.ts
-    holiday-shopping.ts
+    holiday-mall.ts
+    restaurant.ts
+    gym.ts
+    office.ts
+    garden-party.ts
+    hospital.ts
+    carnival.ts
     index.ts          # Theme registry
   assets/
-    sprites/          # SVG furniture icons (bundled, not fetched at runtime)
-      chair.svg
-      plant.svg
-      table.svg
-      shelf.svg
-      cash-register.svg
-      bed.svg
-      sofa.svg
-      jacuzzi.svg
-      tree.svg
-      tv.svg
-      door.svg
-      # ... all furniture types used by all themes
-    portraits/        # SVG suspect portrait illustrations (one per name)
+    sprites/          # SVG furniture icons (bundled)
+    portraits/        # SVG suspect portraits (bundled)
   main.ts
 tests/
+  unit/               # Vitest unit tests (co-located *.test.ts or here)
   e2e/
     smoke.spec.ts
-    gameplay.spec.ts  # Full playthrough (generate puzzle → solve → GUILTY)
-    generator.spec.ts # Generator produces valid, unique-solution puzzles
+    gameplay.spec.ts
+    campaign.spec.ts
+    daily.spec.ts
     undo.spec.ts
     save.spec.ts
     share.spec.ts
+    generator.spec.ts
 index.html
 vite.config.ts
 playwright.config.ts
@@ -144,366 +149,316 @@ package.json
 
 ### Grid
 
-The grid is **variable in size and shape** per theme. Each theme defines a bounding rectangle of W columns × H rows (W and H both in range 4–10, not necessarily equal). Rooms are arbitrary contiguous polygons within that bounding box — they are defined by listing which cells belong to them, not by rectangular bounds. A cell outside all rooms is a `wall` (impassable, unplaceable).
+The grid is **variable W×H per theme+difficulty variant**. Each theme has 3 floor plan variants (Easy/Medium/Hard). A variant defines:
 
-- **W × H cells**, where W and H are defined by the theme's `floorPlan`. Typical sizes: 5×5, 6×6, 6×7, 7×8.
-- **Columns 1–W** (x = 0 to W-1, left to right).
-- **Rows 1–H** (y = 0 to H-1, top to bottom).
-- **North = smaller y (up on screen). South = larger y (down on screen).**
-- The Rule of One spans the **full grid width/height** regardless of room shape — a suspect in any cell blocks their entire row and entire column across the whole bounding rectangle.
-- Each cell has exactly one tile type:
-  - `floor` — walkable, placeable
-  - `wall` — impassable, not placeable (cell outside any room, or interior partition)
-  - `chair` / `sofa` / `bed` — seat tile, placeable (suspect can sit here)
-  - `object` — furniture object (plant, shelf, table, cash register, etc.) — NOT placeable, but usable as landmark in clues. Has an `objectType` string (e.g. `"plant"`, `"table"`, `"shelf"`).
-- Each non-wall cell belongs to exactly one **Room Zone** (e.g. `"Bar"`, `"Main Area"`).
-- Rooms are defined as a list of `{x, y}` cells — they can be any connected shape: L-shapes, corridors, single-cell rooms, large open areas. There is no requirement that rooms be rectangular.
-- `isBeside(A, B)` = Moore neighbourhood: `max(abs(dx), abs(dy)) <= 1` (8 surrounding cells including diagonals).
-- `isBeside(A, objectType)` = A is beside any cell containing an object of that type.
+- `width` W (4–10), `height` H (4–10). Not necessarily square or equal.
+- `tiles[y][x]` — 2D array of tile types covering the full bounding rectangle.
+- `rooms` — array of `RoomDefinition`, each a **named list of cells**. Rooms can be any shape: L, corridor, irregular polygon, single cell. No rectangle constraint.
+- `landmarks` — named furniture objects at fixed positions, used as clue targets.
 
-**Suspect count** = W (number of columns). One suspect per column and one per row (Latin square constraint). Typical: 5–8 suspects.
+**Tile types:**
+- `floor` — walkable, placeable by suspects
+- `wall` — impassable, unplaceable (cell outside any room, or interior wall)
+- `chair` / `sofa` / `bed` — seat tile, placeable
+- `object:<type>` — furniture object (e.g. `"object:plant"`, `"object:shelf"`) — NOT placeable, usable as clue landmark
 
-### Theme floor plan variability
+**Coordinate system:**
+- x = column index 0..W-1 (column 1..W in clue text)
+- y = row index 0..H-1 (row 1..H in clue text)
+- North = smaller y (up). South = larger y (down).
 
-Different themes produce grids that look and feel genuinely different:
+**Rule of One**: one suspect per row, one per column across the **entire W×H bounding rectangle** regardless of room boundaries. Placing a suspect blocks that full row and full column.
 
-| Theme | Approx size | Shape character |
-|---|---|---|
-| Coffee Shop | 4×5 | L-shaped with small Restroom corner |
-| Bookstore | 5×5 | Irregular quadrants, Checkout is a narrow strip |
-| Backyard | 6×6 | Asymmetric — Jacuzzi/Deck are small, Backyard is large open |
-| Holiday Shopping | 8×7 | Large, mall-like, Walkway is a wide corridor |
+**Suspect count N** = number of valid columns (columns with ≥1 placeable cell). Typically: Easy N=5, Medium N=6, Hard N=7–8.
 
-The generator must handle grids where:
-- Entire rows or columns may have no placeable cells (all wall/object) → those rows/cols are automatically skipped for suspect placement
-- A room spans multiple disconnected sub-regions (e.g. a corridor that wraps)
-- A cell is occupied by an object that is usable as a clue landmark but is not in the solution space
+**Victim cell**: the single remaining placeable (floor/seat) cell not in any suspect's row or column after all N suspects are placed.
 
-### Suspects
+**Killer**: the suspect whose placed cell shares a Room Zone with the victim cell.
 
-- Count = W (number of grid columns). One per column, one per row (Latin square).
-- Drawn from the theme's name set in PRNG order.
-- Each has a name, a portrait SVG, and a suspect ID (A, B, C… in order).
-- 1 victim per puzzle — named V (e.g. "Vander", "Violet", "Vlimbo"). Not placed by the player; revealed at the last empty valid cell.
-- The killer = the suspect whose placed cell shares a Room Zone with the victim's cell.
+### The 14 Clue Types
 
-### Rule of One (Layer A)
+All evaluators are pure functions in `src/engine/clues.ts`. Natural-language templates live in each theme module.
 
-Every row (1–H) and every column (1–W) contains at most one suspect. Placing a suspect blocks that entire row and that entire column across the full bounding rectangle. After all suspects are placed, exactly one non-wall, non-object, unblocked cell remains — the victim's cell.
-
-**Edge case**: if a row or column contains zero placeable cells (all walls/objects), it is excluded from the Latin square constraint — suspects are placed only in rows and columns that have at least one valid cell.
-
-### Spatial Mask (Layer B)
-
-Suspects can only be placed on `floor`, `chair`, `sofa`, or `bed` tiles. `wall` and `object` tiles cannot be occupied.
-
-### Clue Types (Layer C — all 14)
-
-All clue type evaluators are pure functions in `src/engine/clues.ts`. Natural-language templates live in each theme module.
-
-| ID | Natural language example | Logic |
-|----|--------------------------|-------|
-| `inRoom` | "She was in the Bar." | suspect.zone == zoneId |
-| `notInRoom` | "He was not in the Kitchen." | suspect.zone != zoneId |
-| `inSameRoom` | "She was in the same room as Alan." | A.zone == B.zone |
-| `inDifferentRoom` | "They were in different rooms." | A.zone != B.zone |
+| ID | Example text | Condition |
+|----|---|---|
+| `inRoom` | "She was in the Bar." | suspect.room == roomId |
+| `notInRoom` | "He was not in the Kitchen." | suspect.room != roomId |
+| `inSameRoom` | "She was with Alan." | A.room == B.room |
+| `inDifferentRoom` | "They were in different rooms." | A.room != B.room |
 | `inColumn` | "He was in the third column." | suspect.x == col-1 |
 | `inRow` | "She was in the second row." | suspect.y == row-1 |
-| `isBesideSuspect` | "She was beside Finlay." | Chebyshev(A,B) <= 1 |
-| `isNotBesideSuspect` | "He was not beside a plant." (suspect) | Chebyshev(A,B) > 1 |
-| `isBesideObject` | "He was beside a table." | any object cell of type within Chebyshev 1 |
-| `isNotBesideObject` | "She was not beside a shelf." | no object cell of type within Chebyshev 1 |
-| `onTileType` | "She was in a chair." / "She was sitting." | suspect.tileType == "chair" or "sofa" |
-| `notOnTileType` | "She was not sitting in a chair." | suspect.tileType != "chair" |
-| `northOf` | "He was north of Chloe." (any row above) | A.y < B.y |
-| `southOf` | "He was south of Aria." (any row below) | A.y > B.y |
-| `exactlyNorthOf` | "He was exactly one row north of Gemma." | B.y - A.y == n |
-| `exactlySouthOf` | "She was exactly two rows south of Alan." | A.y - B.y == n |
+| `besideSuspect` | "She was beside Finlay." | chebyshev(A,B) <= 1 |
+| `notBesideSuspect` | "He was not beside Ellie." | chebyshev(A,B) > 1 |
+| `besideObject` | "He was beside a table." | any object:table cell within chebyshev 1 |
+| `notBesideObject` | "She was not beside a plant." | no object:plant cell within chebyshev 1 |
+| `onSeatTile` | "She was sitting in a chair." | suspect.tile in [chair, sofa, bed] |
+| `notOnSeatTile` | "He was not sitting down." | suspect.tile == floor |
+| `northOf` | "He was north of Chloe." | A.y < B.y (any row above, not exact) |
+| `southOf` | "He was south of Aria." | A.y > B.y (any row below, not exact) |
+| `exactlyNRowsNorth` | "He was exactly one row north of Gemma." | B.y - A.y == n |
+| `exactlyNRowsSouth` | "She was exactly two rows south of Alan." | A.y - B.y == n |
 
-Note: `northOf` and `southOf` without "exactly" mean **any** row above/below (not just adjacent), matching the Murdoku book's definition. "Exactly" clues specify a precise offset.
+Note: `northOf`/`southOf` without "exactly" = any row above/below (matching the Murdoku book's definition). With "exactly" = precise offset.
 
-### Win Condition
+### Difficulty and Clue Complexity
 
-1. All suspects placed (satisfying all clues AND Rule of One AND spatial mask).
-2. Exactly one valid non-wall, non-object cell remains unblocked — the victim's cell — highlighted.
-3. Player clicks it → victim portrait appears + victim-found narrative.
-4. Engine finds which suspect's cell shares a zone with the victim → that is the killer.
-5. GUILTY stamp + killer name displayed.
-6. Share card generated. "New Puzzle" button available.
+| Difficulty | Grid approx | Suspects | Clues | Allowed clue types |
+|---|---|---|---|---|
+| Easy | 4×5 to 5×5 | 4–5 | 5–6 | inRoom, notInRoom, inColumn, inRow, inSameRoom, inDifferentRoom |
+| Medium | 6×6 to 6×7 | 6 | 6–8 | + besideSuspect, notBesideSuspect, besideObject, notBesideObject, onSeatTile |
+| Hard | 7×7 to 8×8 | 7–8 | 8–10 | All 16 clue types including northOf/southOf and exactlyN variants |
 
-### Clue Satisfaction Gate
+### Win Sequence
 
-If a player clicks the victim cell while any clue is unsatisfied: unsatisfied clue cards flash red, message "Something doesn't add up..." — no GUILTY. Player must resolve clues first.
+1. All N suspects placed satisfying all clues → all clues show strikethrough.
+2. Victim cell highlighted (the single remaining valid cell).
+3. Player clicks victim cell.
+4. If any clue unsatisfied: unsatisfied clues flash red, message "Something doesn't add up…" — no GUILTY.
+5. If all clues satisfied: victim narrative text shown → victim sprite appears → GUILTY stamp slams in with killer name.
+6. Share card generated. Campaign progress updated (if in campaign).
 
 ---
 
-## Procedural Generator
+## The Three Play Modes
 
-`src/engine/generator.ts` takes a `seed: number` and a `theme: Theme` and returns a complete `Puzzle` object with verified unique solution.
+### Campaign Mode
 
-### Generator algorithm
+A campaign = 12 sequentially generated cases across all 10 themes, escalating in difficulty.
+
+**Campaign structure:**
+- Cases 1–4: Easy difficulty, 4 different themes (PRNG-selected from pool)
+- Cases 5–8: Medium difficulty, 4 different themes
+- Cases 9–12: Hard difficulty, 4 different themes
+- Each campaign has a `campaignSeed` (random 32-bit int). All 12 case seeds are derived deterministically from `campaignSeed + caseIndex`. Same campaign seed = same 12 cases forever.
+- Up to 3 campaign save slots. Each stores: campaignSeed, current case index, completed case array (time, killer, seed), detective rank.
+
+**Campaign board screen:**
+- 12 case cards arranged as a timeline/case file. Each card shows: case number, theme name, difficulty badge, status (locked 🔒 / current 📁 / solved ✅), solve time if completed.
+- Current case is always unlocked. Solved cases are viewable (replay). Future cases locked.
+
+**Detective Ranks:**
+| Rank | Condition |
+|---|---|
+| 🔍 Rookie | Start |
+| 🔎 Investigator | Cases 1–4 complete |
+| 🕵 Detective | Cases 1–8 complete |
+| 🕵️ Senior Detective | Full campaign (1–12) complete |
+| ⭐ Chief Inspector | 3 full campaigns complete |
+
+### Quick Play Mode
+
+Pick theme + difficulty → generate puzzle from random seed → play. Seed in URL hash for sharing. Completion updates stats (total solved, best time per theme+difficulty) but not campaign rank.
+
+### Daily Case
+
+Seed = `djb2hash(YYYY-MM-DD)`. Theme and difficulty rotate on a fixed 30-day schedule (covers all 10 themes at each difficulty level). Same puzzle for every player on a given day.
+
+- Streak counter: consecutive days solved (localStorage).
+- "Daily Case" card always on home screen, shows today's theme and difficulty.
+- After solving: shareable text card with date, theme, difficulty, time, streak.
+
+---
+
+## localStorage Schema
+
+All keys are prefixed `alibi_`. See `src/storage/schema.ts` for TypeScript types.
 
 ```
-1. Initialize PRNG with seed.
-2. Load theme floor plan. Derive:
-   - validCols: columns (0..W-1) with ≥1 placeable cell (floor/chair/sofa/bed)
-   - validRows: rows (0..H-1) with ≥1 placeable cell
-   - N = min(validCols.length, validRows.length) = number of suspects for this puzzle
-3. Place furniture objects: theme's fixed floor plan already includes all objects;
-   no random object placement needed (the floor plan IS the level shape).
-4. Choose N suspects from theme name set in PRNG order.
-5. Place suspects: assign each a unique validRow AND unique validCol on a placeable
-   cell within that (row, col) intersection. Use PRNG + backtracking.
-6. Derive victim cell: the single remaining placeable cell with no suspect in its row
-   or column (across the full W×H bounding rectangle).
-7. Derive killer: suspect whose placed cell shares a room with victim cell.
-8. Generate clues: 1 per suspect. Use the 14 clue types available (only use
-   isBesideObject/isNotBesideObject if objects exist in the floor plan;
-   only use onTileType if seat tiles exist; etc.). Maximize variety.
-9. Verify uniqueness: run solver. If multiple solutions → add 1 more clue, re-verify.
-   Repeat up to 5 extra clues. If still not unique → full retry (new PRNG seed offset).
-10. Retry entire placement up to 20 times. Throw on total failure.
-11. Return Puzzle object.
+alibi_campaign_1        CampaignSave  (slot 1 of 3)
+alibi_campaign_2        CampaignSave
+alibi_campaign_3        CampaignSave
+alibi_daily_<YYYY-MM-DD>  DailySave  (solved status, time)
+alibi_streak            number       (consecutive daily streak)
+alibi_stats             PlayerStats  (total solved, best times)
+alibi_prefs             PlayerPrefs  (mute, howtoplay_seen)
+alibi_puzzle_state      PuzzleState  (in-progress placement, keyed by seed+theme+difficulty)
 ```
 
-### Uniqueness contract
-
-The solver MUST confirm exactly 1 solution before the puzzle is returned to the renderer. The generator retries (up to 20 attempts with fresh PRNG state) if no unique-solution clue set is found. If all retries fail, `generator.ts` throws an error — this must never reach the player.
-
-### Seeding and sharing
-
+`CampaignSave`:
 ```typescript
-// URL hash format: #theme=coffee-shop&seed=1234567890
-// "New Puzzle" generates a new random seed and pushes to URL hash.
-// Sharing the URL always reproduces the exact same puzzle.
+{
+  campaignSeed: number;
+  slot: 1 | 2 | 3;
+  currentCase: number;          // 0-11
+  startedAt: string;            // ISO date
+  cases: Array<{
+    seed: number;
+    themeId: string;
+    difficulty: 'easy'|'medium'|'hard';
+    status: 'locked'|'in_progress'|'solved';
+    solveTimeMs?: number;
+    killerName?: string;
+  }>;
+  rank: 'rookie'|'investigator'|'detective'|'senior'|'chief';
+}
+```
+
+`PuzzleState` (in-progress save, keyed by `seed-themeId-difficulty`):
+```typescript
+{
+  placements: Record<string, {x: number, y: number}>;  // suspectId → cell
+  elapsedMs: number;
+  savedAt: string;
+}
 ```
 
 ---
 
 ## Theme Module Interface
 
-Each theme exports a `Theme` object implementing this interface:
-
 ```typescript
 interface Theme {
-  id: string;                          // "coffee-shop"
-  name: string;                        // "The Coffee Shop"
-  floorPlan: FloorPlan;                // W×H tile layout + zone definitions (see below)
-  objectCatalog: ObjectType[];         // furniture types available in this theme
-  suspectNames: SuspectName[];         // name pool (at least W+4 names for the grid)
-  victimNames: string[];               // victim name pool (must start with V)
-  narrativeTemplates: NarrativeTemplates;
-  colorPalette: ThemePalette;          // floor/wall/per-zone colors
-  spriteMap: Record<ObjectType, string>; // objectType → SVG asset path
+  id: string;
+  name: string;
+  floorPlans: {
+    easy: FloorPlan;
+    medium: FloorPlan;
+    hard: FloorPlan;
+  };
+  suspectNames: SuspectName[];    // ≥ 12 names
+  victimNames: string[];          // start with V, ≥ 6 names
+  clueTemplates: ClueTemplates;   // natural-language string templates per clue type
+  narrativeTemplates: {
+    intro: string[];              // 3+ variants (PRNG-chosen)
+    victimFound: string[];
+    guiltyText: string[];         // "{{killerName}} — {{evidenceText}}"
+  };
+  colorPalette: ThemePalette;     // floor, wall, zone colors, accent
+  spriteMap: Record<string, string>; // objectType → SVG path
+  portraitSet: string;            // portrait SVG folder name
 }
 
 interface FloorPlan {
-  width: number;                       // W: number of columns (4–10)
-  height: number;                      // H: number of rows (4–10)
-  // 2D array [y][x] of tile types: "floor" | "wall" | "chair" | "sofa" | "bed" | "object:<type>"
-  // "object:plant" means an object tile of type "plant"
-  // null means wall (shorthand)
-  tiles: (string | null)[][];
-  // Rooms are defined by listing their member cells explicitly.
-  // A cell not in any room and not a wall is an error (caught at theme load time).
+  width: number;          // W: columns (4–10)
+  height: number;         // H: rows (4–10)
+  tiles: (string|null)[][];  // [y][x]: "floor"|"wall"|"chair"|"sofa"|"bed"|"object:<type>"|null(=wall)
   rooms: RoomDefinition[];
-  // Objects with names for use in clues (placed at fixed positions in the floor plan)
-  landmarks: LandmarkDefinition[];
+  landmarks: LandmarkDefinition[];  // named objects for clue text
 }
 
 interface RoomDefinition {
-  id: string;                          // "bar"
-  name: string;                        // "Bar" (shown in clue text and on GUILTY screen)
-  cells: Array<{x: number, y: number}>; // ALL cells belonging to this room
-  // Note: cells may be any shape — L, T, corridor, single cell. No rectangle constraint.
-}
-
-interface LandmarkDefinition {
-  id: string;                          // "cash-register"
-  name: string;                        // "the cash register" (used verbatim in clue text)
-  x: number;
-  y: number;
-  objectType: string;                  // matches tile type "object:<objectType>"
+  id: string;
+  name: string;           // used verbatim in clue text and GUILTY screen
+  cells: {x: number, y: number}[];  // ALL cells in this room — any shape
 }
 ```
 
-### Generator algorithm (updated for variable grids)
+---
+
+## Generator Algorithm
+
+`src/engine/generator.ts` takes `(seed, theme, difficulty)` → `Puzzle`.
 
 ```
-1. Initialize PRNG with seed.
-2. Load theme floor plan. Derive:
-   - validCols: columns that contain at least one placeable cell (floor/chair/sofa/bed)
-   - validRows: rows that contain at least one placeable cell
-   - N = min(validCols.length, validRows.length) = number of suspects
-3. Place N suspects: assign each to a unique validRow AND unique validCol (Latin square)
-   on a placeable cell within that row+col intersection. Use PRNG + backtracking.
-4. Derive victim cell: the one placeable cell not in any suspect's row or column.
-5. Derive killer: suspect whose placed cell shares a room with victim cell.
-6. Generate clues (one per suspect, varied types). Clue types available depend on
-   what's present in the floor plan (e.g. only use isBesideObject if objects exist).
-7. Verify uniqueness: run solver. If not unique, add clues and re-verify.
-8. Retry up to 20 times if no unique solution found. Throw on total failure.
+1. Initialize seeded PRNG (mulberry32).
+2. Load floorPlan = theme.floorPlans[difficulty].
+3. Derive validCols: columns 0..W-1 with ≥1 placeable cell (floor/chair/sofa/bed).
+4. Derive validRows: rows 0..H-1 with ≥1 placeable cell.
+5. N = min(validCols.length, validRows.length).
+6. PRNG-select N suspect names from theme.suspectNames.
+7. PRNG-select 1 victim name from theme.victimNames.
+8. Place suspects: assign each of N suspects to a unique validRow AND unique validCol
+   at a placeable cell within that (row,col) intersection.
+   Use PRNG ordering + backtracking. Max 1000 backtracks before retry.
+9. Derive victim cell: single placeable cell with no suspect in its row or column.
+10. Derive killer: suspect whose placed cell shares a room with victim cell.
+11. PRNG-select narrative variants (intro, victimFound, guiltyText).
+12. Generate clues:
+    a. For each suspect, generate 1 primary clue using a difficulty-appropriate type.
+    b. Maximize variety: avoid repeating same clue type for consecutive suspects.
+    c. Prefer clues that reference the floor plan's specific objects and rooms.
+13. Run solver. If solution count != 1: add extra clue, re-run solver. Repeat up to 5×.
+14. If still not unique after 5 extra clues: full retry with seed+attempt offset.
+    Max 20 full retries. Throw PuzzleGenerationError on total failure.
+15. Return Puzzle object.
 ```
 
----
+### Solver
 
-## Sprite Assets
+`src/engine/solver.ts` takes `(floorPlan, suspects, clues)` → `number` (solution count).
 
-SVG furniture sprites live in `src/assets/sprites/`. They are imported directly by Vite (bundled into the JS/HTML at build time, no runtime fetch). Portrait SVGs live in `src/assets/portraits/`.
+Uses constraint propagation + backtracking. Returns early at count=2 (only needs to know if unique). Must solve any valid puzzle in <100ms.
 
-**Sprites required for v1.0** (one SVG per type):
-`chair`, `sofa`, `bed`, `plant`, `table`, `shelf`, `cash-register`, `tree`, `jacuzzi`, `tv`, `door`, `teddy-bear`, `register`
+### window.__alibi_puzzle
 
-Sprites must be: viewBox 32×32, clean flat vector, consistent color style across all. No photographic or raster elements.
-
-Portrait SVGs: one per suspect name (at least 12 per theme × 4 themes = ~24 portraits). Style: flat vector face illustration, unique hair/glasses/features per person, no text. 64×64 viewBox.
-
-**QA does NOT block PRs for missing or placeholder sprite files.** A missing sprite falls back to a labeled colored rectangle. Real SVG sprites are an enhancement within v1.0 — the generator and gameplay must work before sprites are added.
-
----
-
-## UX Mechanics
-
-### Placement interaction
-- Click a `floor/chair/sofa/bed` cell → radial menu opens with available suspects + Clear option.
-- Click a `wall` or `object` cell → nothing (no flash, just ignore).
-- Click a cell in a blocked row/column → cell flashes red briefly (500ms), no menu.
-- Click a cell already occupied by a suspect → radial menu opens with Clear option.
-
-### Shadows
-- Placing a suspect draws a semi-transparent overlay over the entire row and column.
-- Clearing a suspect removes its row/column shadow.
-
-### Undo / Redo
-- Every placement and clear is recorded in an undo stack (max 50 entries).
-- `Ctrl/Cmd+Z` undo, `Ctrl/Cmd+Shift+Z` redo. Undo button in sidebar.
-
-### Sound
-- Web Audio API synthesis only — no audio files. Zero bundle cost.
-- Events: `place`, `clear`, `clue-satisfied`, `blocked`, `victim-reveal`, `guilty-stamp`.
-- Mute toggle (🔇) persists to `localStorage`.
-
-### Progress save
-- Auto-save current placements to `localStorage` keyed by seed + theme.
-- On load: if a save exists for the current seed, restore with "Resume?" prompt.
-
-### Share card
-- On GUILTY: show completion card with theme name, time, killer name, seed URL.
-- "Copy result" copies text card to clipboard (à la Wordle).
-
-### How-to-play
-- Modal on first visit (localStorage flag). 4 slides: concept, placing, clues, accusation.
-- Always accessible via "?" button.
-
----
-
-## Code Standards
-
-- TypeScript strict mode. `"strict": true`.
-- No `any` without justifying comment.
-- Pure functions for all engine code (`src/engine/`). Side effects only in `src/render/` and `src/game/`.
-- Tests: Vitest for engine (unit), Playwright for render/game (e2e).
-- Copyright header: `// Copyright 2026 The alibi Authors. Apache-2.0.`
-- ESLint with `@typescript-eslint/recommended`. `npm run lint` must exit 0.
-- Conventional Commits: `feat(scope):`, `fix(scope):`, `chore(scope):`
+In DEV and TEST builds, set `window.__alibi_puzzle = puzzle` after generation. Playwright tests read `solution`, `killer`, `clues` from this. Never set in production builds.
 
 ---
 
 ## E2E Testing — MANDATORY
 
-Every feature affecting the browser must be verified with Playwright (`npm run test:e2e`) AND the OpenCode browser extension (`browser_screenshot`, `browser_click`, `browser_errors`). See §E2E Testing Protocol below.
+Every PR touching render/game/modes/storage must be verified with BOTH:
+1. **Playwright** (`npm run test:e2e`) — headless, runs in CI
+2. **OpenCode browser extension** — visual screenshots required in PR body
 
 ### Required data-testid attributes
 
 | Element | data-testid |
-|---------|-------------|
-| Canvas element | `game-canvas` |
-| Theme selector | `theme-select` |
-| New Puzzle button | `btn-new-puzzle` |
+|---|---|
+| Canvas | `game-canvas` |
+| Home screen | `screen-home` |
+| Campaign button | `btn-campaign` |
+| Quick Play button | `btn-quickplay` |
+| Daily Case button | `btn-daily` |
+| Campaign board | `screen-campaign-board` |
+| Case card (each) | `case-card-{0..11}` |
+| Case card status | `case-status-{0..11}` |
+| Theme selector | `screen-theme-select` |
+| Each theme card | `theme-card-{themeId}` |
+| Difficulty Easy | `difficulty-easy` |
+| Difficulty Medium | `difficulty-medium` |
+| Difficulty Hard | `difficulty-hard` |
+| Game screen | `screen-game` |
+| Grid cell | `cell-{x}-{y}` |
 | Radial menu | `radial-menu` |
-| Suspect option (A–H) | `suspect-option-[A-H]` |
+| Suspect option | `suspect-option-{id}` |
 | Clear option | `suspect-option-clear` |
-| Each clue card | `clue-[id]` (e.g. `clue-0`, `clue-1`) |
-| Satisfied clue | add class `clue-satisfied` |
-| Unsatisfied clue (flashing) | add class `clue-error` |
+| Clue card | `clue-{i}` |
+| Satisfied clue | class `clue-satisfied` |
+| Error clue | class `clue-error` |
 | Victim cell highlight | `victim-cell` |
 | GUILTY stamp | `guilty-stamp` |
-| GUILTY killer name | `guilty-killer-name` |
+| Killer name on GUILTY | `guilty-killer-name` |
+| Clue gate message | `msg-clue-gate` |
+| Narrative intro | `narrative-intro` |
 | Undo button | `btn-undo` |
 | Redo button | `btn-redo` |
 | Mute button | `btn-mute` |
 | Share button | `btn-share` |
 | Help button | `btn-help` |
 | How-to-play modal | `overlay-howtoplay` |
-| Narrative intro screen | `narrative-intro` |
 | Resume prompt | `prompt-resume` |
-| "Something doesn't add up" msg | `msg-clue-gate` |
+| Daily streak display | `daily-streak` |
 
-Each grid cell: `data-testid="cell-{x}-{y}"` on its clickable overlay element.
-
-### Playwright test pattern
-
-```typescript
-import { test, expect } from '@playwright/test';
-
-test('full playthrough — coffee shop', async ({ page }) => {
-  // Use seed=12345 which the test suite controls for determinism
-  await page.goto('/?theme=coffee-shop&seed=12345');
-  await page.click('[data-testid="narrative-intro"] button');
-
-  // The puzzle object is exposed as window.__alibi_puzzle in test builds
-  const solution = await page.evaluate(() => (window as any).__alibi_puzzle.solution);
-
-  // Place each suspect
-  for (const [suspectId, pos] of Object.entries(solution)) {
-    await page.click(`[data-testid="cell-${(pos as any).x}-${(pos as any).y}"]`);
-    await page.click(`[data-testid="suspect-option-${suspectId}"]`);
-  }
-
-  // All clues satisfied
-  const clueCount = await page.locator('[data-testid^="clue-"]').count();
-  for (let i = 0; i < clueCount; i++) {
-    await expect(page.locator(`[data-testid="clue-${i}"]`)).toHaveClass(/clue-satisfied/);
-  }
-
-  // Click victim cell → GUILTY
-  await page.click('[data-testid="victim-cell"]');
-  await expect(page.locator('[data-testid="guilty-stamp"]')).toBeVisible();
-  await expect(page.locator('[data-testid="guilty-killer-name"]')).not.toBeEmpty();
-});
-```
-
-**Important**: In test/dev builds, `window.__alibi_puzzle` must be set to the current puzzle object so Playwright tests can read the solution without hard-coding it. This is gated by `import.meta.env.DEV || import.meta.env.TEST`.
-
-### Browser extension verification checklist (required before every PR)
+### Browser extension checklist (before every PR on render/game/modes/storage)
 
 ```
 [ ] browser_navigate("http://localhost:5173")
-[ ] browser_screenshot() → grid renders, no blank canvas
-[ ] browser_screenshot() after first suspect placement → shadow visible
-[ ] browser_screenshot() after all suspects placed → victim cell highlighted
-[ ] browser_screenshot() after victim click with unsatisfied clues → error state
-[ ] browser_screenshot() after correct solution + victim click → GUILTY stamp visible
+[ ] browser_screenshot() → home screen with 3 mode buttons visible
+[ ] navigate to a puzzle → browser_screenshot() → grid renders correctly
+[ ] place first suspect → browser_screenshot() → row/col shadow visible
+[ ] all suspects placed → browser_screenshot() → victim cell highlighted, clues struck through
+[ ] click victim with wrong solution → browser_screenshot() → clue-gate error state
+[ ] correct solution + victim click → browser_screenshot() → GUILTY stamp visible
 [ ] browser_errors() → zero JS errors
-[ ] browser_console(filter="error") → empty
 ```
-
-At least one browser_screenshot must appear in every PR body that touches render/game/themes.
 
 ### Anti-patterns (QA blocks PRs containing these)
 
 | Pattern | Caught by |
 |---|---|
-| Engine logic inside `src/render/` or `src/game/` | QA |
-| Any `fetch()` at runtime (sprites must be bundled) | QA |
-| `any` type without justifying comment | QA |
-| Generator producing puzzle with 0 or 2+ solutions | QA (solver test) |
-| `data-testid` missing on interactive/observable element | QA |
-| `page.click('canvas', {position:{x,y}})` in Playwright tests | QA — banned |
-| PR body missing `browser_screenshot` (for render/game PRs) | QA |
-| `window.__alibi_puzzle` not exposed in DEV/TEST builds | QA |
-| Runtime npm package import in `src/` | QA |
-| Hardcoded solution or seed in engine code | QA |
+| Engine logic in render/ game/ modes/ storage/ | QA |
+| Any runtime fetch() | QA |
+| `any` type without comment | QA |
+| Puzzle with != 1 solution reaching player | QA |
+| data-testid missing on interactive/observable element | QA |
+| page.click('canvas', {position:…}) in Playwright | QA — banned |
+| PR body missing browser_screenshot (render/game PRs) | QA |
+| window.__alibi_puzzle missing in DEV/TEST build | QA |
+| Runtime npm package in src/ | QA |
+| Hardcoded solution, seed, or theme in engine code | QA |
+| localStorage write outside src/storage/progress.ts | QA |
+| Campaign seed derivation logic outside src/modes/campaign.ts | QA |
 
 ---
 
@@ -518,7 +473,7 @@ At least one browser_screenshot must appear in every PR body that touches render
 | Group | Labels |
 |---|---|
 | Kind | `kind/enhancement`, `kind/bug`, `kind/chore`, `kind/docs`, `kind/security` |
-| Area | `area/engine`, `area/generator`, `area/render`, `area/game`, `area/themes`, `area/ui`, `area/deploy` |
+| Area | `area/engine`, `area/generator`, `area/render`, `area/game`, `area/themes`, `area/ui`, `area/campaign`, `area/storage`, `area/deploy` |
 | Priority | `priority/critical`, `priority/high`, `priority/medium`, `priority/low` |
 | Size | `size/xs`, `size/s`, `size/m`, `size/l`, `size/xl` |
 | Type | `epic` |

@@ -2,115 +2,160 @@
 
 > Based on: docs/aide/vision.md
 
----
-
-## Current Gate: Engine + Generator must exist before any theme or rendering work
-
-The generator must be able to produce valid, unique-solution puzzles in isolation (no browser, no sprites) before any rendering or theme work begins.
+The build order is strict: engine before renderer, renderer before modes, modes before campaign, all of the above before themes 5–10.
 
 ---
 
-## Stage 0: Project Skeleton & Toolchain
+## Stage 0: Skeleton + Toolchain
 
-**Goal:** Working Vite + TypeScript project, CI green, Playwright wired, GitHub Pages deploy.
+**Goal:** Build green, Playwright wired, GitHub Pages deploy working.
 
 ### Deliverables
 - `package.json`: Vite + TypeScript + Vitest + ESLint + `@playwright/test`
-- `index.html` + `src/main.ts` entry point
-- Canvas element renders with `data-testid="game-canvas"`
+- `index.html` + `src/main.ts` (blank canvas)
+- `data-testid="game-canvas"` on canvas element
 - `npm run build`, `npm test`, `npm run lint`, `npm run test:e2e` all exit 0
-- `playwright.config.ts` targeting `http://localhost:5173`
-- `tests/e2e/smoke.spec.ts`: page loads, canvas visible, zero JS errors
-- GitHub Actions CI: build + unit test + lint + Playwright e2e on every PR
-- GitHub Pages deploy workflow on merge to main
-- `npx playwright install chromium --with-deps` in CI
-
-### Dependencies
-None
+- `playwright.config.ts` targeting localhost:5173
+- `tests/e2e/smoke.spec.ts`: page loads, canvas visible, zero errors
+- GitHub Actions CI: build + test + lint + e2e on every PR
+- GitHub Pages deploy on merge to main
 
 ---
 
-## Stage 1: Core Engine (pure functions, no DOM)
+## Stage 1: Core Engine (pure, no DOM)
 
-**Goal:** All game logic implemented and unit-tested. The generator produces valid unique-solution puzzles for a stubbed theme.
+**Goal:** Generator produces valid unique-solution puzzles. Solver verifies them. All 16 clue evaluators tested.
 
 ### Deliverables
-- `src/engine/grid.ts` — 6×6 grid model: tile types, zones, object placement
+- `src/engine/grid.ts` — W×H grid model, tile types, room cell-list zones
 - `src/engine/logic.ts` — Rule of One, spatial mask, win condition, victim cell derivation
-- `src/engine/clues.ts` — All 14 clue type evaluators (pure functions; see AGENTS.md)
-- `src/engine/solver.ts` — Constraint solver: counts valid solutions for a given puzzle + clue set. Must return exactly 1 for a valid puzzle.
-- `src/engine/generator.ts` — seeded PRNG generator: derives validCols/validRows from floor plan, places suspects (Latin square backtracking), derives victim cell, generates varied clue set, calls solver, retries on failure
-- `src/themes/index.ts` — Theme registry interface + stub theme for testing (minimal 4×4 grid, 2 rooms)
+- `src/engine/clues.ts` — All 16 clue evaluators (pure functions; see AGENTS.md)
+- `src/engine/solver.ts` — Constraint solver: returns solution count, exits early at 2
+- `src/engine/generator.ts` — Seeded PRNG (mulberry32), Latin square backtracking, clue generation, uniqueness loop, 20-retry limit
+- `src/storage/schema.ts` — TypeScript types for all localStorage structures
+- `src/themes/index.ts` + stub theme: 4×5 floor plan, 2 rooms, Easy/Medium/Hard variants (same layout), minimal name set
 - `window.__alibi_puzzle` exposed in DEV/TEST builds
-- Vitest: >90% line coverage on all `src/engine/` files
-- Generator test: 1000 different seeds on stub theme → all produce unique-solution puzzles, no timeout in CI
-- Generator test: irregular floor plan (L-shaped rooms, wall columns, object rows) → still produces valid puzzles
-
-### Dependencies
-Stage 0
+- Vitest: >90% coverage on all `src/engine/`
+- Generator test: 1000 seeds on stub theme → all unique solutions, <5s total
+- Generator test: irregular floor plan (L-rooms, wall columns) → valid puzzles
 
 ---
 
-## Stage 2: Coffee Shop Theme + Rendering
+## Stage 2: Coffee Shop Theme + Full Game Screen
 
-**Goal:** One complete playable theme rendered in the browser. Full UX: placement, shadows, clue satisfaction, undo, sound, narrative, save, share, how-to-play.
+**Goal:** One complete playable game. All UX mechanics working: placement, shadows, undo, sound, clue satisfaction, win sequence, save/resume.
+
+### Coffee Shop floor plan variants
+- Easy: 4×5. Rooms: Bar (top 2 rows, left 3 cols), Main Area (bottom 3 rows, all cols), Restroom (top 2 rows, right 2 cols). ~5 objects (chairs, plant, cash register).
+- Medium: 5×6. Add counter object row, more seat tiles.
+- Hard: 6×7. L-shaped main area, narrow restroom corridor, back storage room added.
 
 ### Deliverables
-- `src/themes/coffee-shop.ts` — complete theme module: floor plan, zones (Bar, Main Area, Restroom), object catalog, suspect name set (12 names), victim names, narrative templates, color palette, sprite map
-- `src/render/canvas.ts` — tile renderer: floor/wall/zone colors from theme palette; furniture objects rendered as SVG sprites (fallback to labeled rectangle if SVG missing)
-- `src/render/sprites.ts` — SVG bundled sprite loader (Vite `?raw` import)
-- `src/render/portraits.ts` — suspect portrait card SVGs (fallback to colored initial rectangle)
-- `src/render/ui.ts` — sidebar: suspect list, 6–8 clue cards, strikethrough on `clue-satisfied`, flash on `clue-error`
-- `src/render/overlay.ts` — narrative intro, how-to-play modal (4 slides), share card, resume prompt
-- `src/game/state.ts` — state machine: `idle → narrative → placing → solved → reveal → guilty → end`
-- `src/game/input.ts` — click → radial menu → placement; keyboard arrow/Enter/Escape nav; blocked row/col flash
-- `src/game/undo.ts` — undo/redo stack; `Ctrl/Cmd+Z`; undo button (`btn-undo`)
-- `src/game/sound.ts` — Web Audio API synthesis: 6 events. Mute toggle (`btn-mute`).
-- `src/game/save.ts` — auto-save by seed+theme to localStorage; resume prompt on reload
-- `src/game/share.ts` — completion card; `btn-share` copies to clipboard
-- Theme selector (`theme-select`) and "New Puzzle" button (`btn-new-puzzle`)
-- URL hash: `#theme=coffee-shop&seed=<N>`
-- All `data-testid` attributes per AGENTS.md present
-- `tests/e2e/gameplay.spec.ts` — full playthrough using `window.__alibi_puzzle`
+- `src/themes/coffee-shop.ts` — full Theme module with all 3 floor plan variants, 12 suspect names, 6 victim names, clue templates, color palette, sprite map
+- `src/render/canvas.ts` — tile renderer (zone colors, wall rendering, object sprites)
+- `src/render/sprites.ts` — SVG bundled loader (Vite `?raw`)
+- `src/render/portraits.ts` — portrait card renderer (SVG or initial-letter fallback)
+- `src/render/ui.ts` — sidebar: suspect cards, clue cards, live satisfaction state
+- `src/render/overlay.ts` — narrative intro, GUILTY stamp, share card
+- `src/game/state.ts` — full state machine
+- `src/game/input.ts` — click, radial menu, keyboard nav, blocked row/col flash
+- `src/game/undo.ts` — undo/redo, `Ctrl/Cmd+Z`, btn-undo
+- `src/game/sound.ts` — Web Audio synthesis: 6 events, mute toggle
+- `src/game/share.ts` — completion card + clipboard
+- `src/screens/game.ts` — game screen wiring
+- `src/storage/progress.ts` — localStorage read/write (PuzzleState save/resume only for now)
+- How-to-play overlay (4 slides, localStorage first-visit flag)
+- `tests/e2e/gameplay.spec.ts` — full playthrough using window.__alibi_puzzle
 - `tests/e2e/undo.spec.ts`, `save.spec.ts`, `share.spec.ts`
-- `npm run test:e2e` exits 0; PR body contains browser_screenshot evidence
-
-### Dependencies
-Stage 1
 
 ---
 
-## Stage 3: Remaining 3 Themes
+## Stage 3: Home Screen + All Three Play Modes
 
-**Goal:** All 4 themes playable. Theme selector works. Each theme has its own floor plan, sprites, name set, and narrative templates.
+**Goal:** All three modes playable. Home screen. Campaign with 3 save slots. Daily Case with streak. Quick Play with theme+difficulty selector.
 
 ### Deliverables
-- `src/themes/bookstore.ts` — **5×5 irregular** — rooms: Crime Novels (top-left L-shape), Non-Fiction (center), Romance Novels (right strip), Best Sellers (bottom-left), Checkout (bottom-right narrow)
-- `src/themes/backyard.ts` — **6×6 asymmetric** — rooms: Backyard (large open 3×3), Jacuzzi (2×2 corner), Deck (1×2 strip), Bedroom (2×3 bottom-left), Living Room (3×3 bottom-center), Kitchen (2×2 bottom-right)
-- `src/themes/holiday-shopping.ts` — **8×7 large mall** — rooms: Electronics (left mid), Santa's Village (center large), Santa's Lodge (top-right small), Bookstore (right strip), Toy Store (bottom-left large), Walkway (wide horizontal corridor), Coffee Shop (bottom-right)
-- Each theme has genuinely different W×H dimensions and irregular room shapes
-- SVG sprites for all new furniture types (or confirmed fallback to placeholder)
-- Portrait SVGs for all new name sets (or confirmed fallback)
-- Theme selector shows all 4 themes with names and preview colors
-- Generator tests: 250 seeds × 4 themes — all unique-solution puzzles; tests pass despite different grid sizes
-- `tests/e2e/gameplay.spec.ts` parameterized across all 4 themes
-
-### Dependencies
-Stage 2
+- `src/screens/home.ts` — home screen with Campaign, Quick Play, Daily Case buttons + daily preview card
+- `src/screens/campaign-board.ts` — 12-case timeline, case cards with status/lock/time
+- `src/screens/theme-select.ts` — theme + difficulty picker for Quick Play
+- `src/modes/campaign.ts` — campaign seed derivation, 12-case generation, rank calculation, slot management (3 slots)
+- `src/modes/quickplay.ts` — random seed generation, theme/difficulty selection
+- `src/modes/daily.ts` — date-based seed, 30-day rotation schedule, streak logic
+- `src/storage/progress.ts` — extended with CampaignSave, DailySave, PlayerStats, PlayerPrefs
+- Detective rank calculation and display
+- `tests/e2e/campaign.spec.ts`:
+  - New campaign creates 12 cases with correct difficulty progression
+  - Completing a case advances to the next and saves progress
+  - Reloading resumes correct state from localStorage
+  - 3 save slots are independent
+- `tests/e2e/daily.spec.ts`:
+  - Same date always produces same puzzle
+  - Streak increments on consecutive daily solves
+  - Streak resets after missed day
 
 ---
 
-## Stage 4: Polish & v1.0 Release
+## Stage 4: Themes 2–4 (Bookstore, Backyard, Holiday Mall)
 
-**Goal:** v1.0 shipped to `https://pnz1990.github.io/alibi/`. Fully self-explanatory.
+**Goal:** Four themes available across all modes. Generator tests across all 4 themes.
+
+### Bookstore floor plan (all 3 variants)
+- Easy 5×5: 4 rooms — Crime Novels (top-left 2×3), Romance Novels (right strip 2×5), Non-Fiction (mid-left 3×2), Best Sellers (bottom-left 3×3), Checkout (bottom-right 2×2, cash register object, impassable register tile)
+- Medium 6×6: add Rare Books alcove (1×2)
+- Hard 7×7: extended Crime Novels with bookshelves blocking multiple cells
+
+### Backyard floor plan (all 3 variants)
+- Easy 5×5: Backyard (large open), Jacuzzi (2×2 top-right), Deck (1×2 strip)
+- Medium 6×6: add Bedroom, Living Room
+- Hard 7×7: add Kitchen, irregular L-shaped Backyard, fenced Jacuzzi area
+
+### Holiday Mall floor plan (all 3 variants)
+- Easy 5×6: Walkway (horizontal corridor), Electronics (left), Toy Store (right)
+- Medium 7×7: add Santa's Village, Food Court
+- Hard 8×8: full mall — all 7 rooms, irregular shapes, narrow corridor zones
 
 ### Deliverables
-- Pixel/bitmap font for all UI text (bundled as data URI)
-- Mobile-responsive layout (landscape phone, touch-friendly radial menu)
-- Lighthouse performance ≥ 80, load < 3s
+- All 3 theme modules with 3 floor plan variants each
+- SVG sprites for all new furniture types (or confirmed placeholder fallback)
+- `gameplay.spec.ts` parameterized across all 4 themes × 3 difficulties
+- Generator test: 100 seeds × 4 themes × 3 difficulties = 1200 puzzles → all unique solutions
+
+---
+
+## Stage 5: Themes 5–10 (Restaurant, Gym, Office, Garden Party, Hospital, Carnival)
+
+**Goal:** All 10 themes complete. Campaign uses all 10.
+
+### Floor plan guidance for each
+
+**Restaurant**: Easy 5×5 (Kitchen, Dining Room, Bar). Medium 6×6 (+ Private Room). Hard 7×8 (+ Restroom, irregular kitchen corridor with stove/counter objects blocking cells).
+
+**Gym**: Easy 4×5 (Weights area, Cardio). Medium 6×6 (+ Locker Room, Pool). Hard 7×8 (+ Sauna, irregular pool shape, equipment objects).
+
+**Office**: Easy 5×5 (Open Plan, Meeting Room). Medium 6×6 (+ Kitchen, Reception). Hard 7×7 (+ Server Room narrow corridor, glass partition walls creating irregular shapes).
+
+**Garden Party**: Easy 5×5 (Lawn, Gazebo). Medium 6×6 (+ Pool Area). Hard 7×8 (+ Greenhouse irregular shape, Garage, garden path corridor separating areas).
+
+**Hospital**: Easy 5×5 (Ward, Waiting Room). Medium 6×6 (+ Pharmacy, Cafeteria). Hard 8×7 (+ Operating Theatre with sterile zone, narrow corridor, supply room).
+
+**Carnival**: Easy 5×5 (Carousel, Ticket Booth). Medium 6×7 (+ Funhouse, Food Stands). Hard 8×8 (+ Backstage, irregular Funhouse shape, tent structures creating non-rectangular rooms).
+
+### Deliverables
+- All 6 theme modules with 3 floor plan variants each
+- Campaign mode updated to draw from all 10 themes
+- Generator tests: 50 seeds × 10 themes × 3 difficulties = 1500 puzzles → all unique
+
+---
+
+## Stage 6: Polish + v1.0 Release
+
+**Goal:** Shipped to `https://pnz1990.github.io/alibi/`. Self-explanatory, mobile-ready, performant.
+
+### Deliverables
+- Pixel/bitmap font bundled as data URI for all game text
+- Mobile-responsive layout: landscape phone playable, touch-friendly radial menu (larger tap targets)
+- Lighthouse performance ≥ 80, first paint < 3s
+- Accessibility: all interactive elements keyboard-navigable
 - All 5 definition-of-done journeys ✅ in CI against production URL
 - GitHub release `v1.0.0` with changelog
-- `README.md` with live screenshot and play link
-
-### Dependencies
-Stage 3
+- `README.md` with live screenshot, play link, and brief rules explanation
