@@ -52,6 +52,18 @@ export interface PuzzleState {
   placements: Record<string, { x: number; y: number }>; // suspectId → cell
   elapsedMs: number;
   savedAt: string; // ISO date string
+  annotations?: CellAnnotations; // optional for backward compat with existing saves
+}
+
+/**
+ * Cell annotation state — player deduction notes, not game logic.
+ * Stored alongside placements in PuzzleState.
+ */
+export interface CellAnnotations {
+  /** Cells marked as "nobody here" — array of [x, y] pairs */
+  x: Array<[number, number]>;
+  /** Candidate suspects per cell — key "x,y" → array of suspectIds */
+  candidates: Record<string, string[]>;
 }
 
 /** All localStorage keys used by ALIBI */

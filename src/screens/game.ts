@@ -14,8 +14,13 @@ import { getTheme } from '../themes/index';
 import { renderGrid, getCanvasSize } from '../render/canvas';
 import { renderSidebar } from '../render/ui';
 import { showNarrativeIntro, showGuiltyScreen, showClueGateMessage } from '../render/overlay';
-import { createGameState, placeSuspect, removeSuspect, restoreSnapshot, checkWin } from '../game/state';
-import type { GameState } from '../game/state';
+import {
+  createGameState, placeSuspect, removeSuspect, checkWin,
+  takeSnapshot, restoreFromSnapshot,
+  toggleXAnnotation, addCandidateAnnotation, removeCandidateAnnotation,
+  clearCandidatesForPlacement,
+} from '../game/state';
+import type { GameState, GameSnapshot } from '../game/state';
 import { UndoStack } from '../game/undo';
 import { playSound, toggleMute } from '../game/sound';
 import { generateShareText, copyToClipboard } from '../game/share';
@@ -69,11 +74,17 @@ export function mountGameScreen(_root: HTMLElement): void {
   function savePlacements(k: string, s: GameState): void {
     const placements: Record<string, { x: number; y: number }> = {};
     s.placements.forEach((p, id) => { placements[id] = { x: p.x, y: p.y }; });
-    savePuzzleState({ key: k, placements, elapsedMs: s.elapsedMs, savedAt: new Date().toISOString() });
+    savePuzzleState({
+      key: k,
+      placements,
+      elapsedMs: s.elapsedMs,
+      savedAt: new Date().toISOString(),
+      annotations: s.annotations,
+    });
   }
 
   function redraw(): void {
-    renderGrid(ctx, puzzle, theme, state.placements, state.victimCell);
+    renderGrid(ctx, puzzle, theme, state.placements, state.victimCell, state.annotations);
     renderSidebar(sidebarContainer, puzzle, state.placements, state.satisfiedClues, state.errorClues);
     handlers.updateOverlays();
   }
@@ -82,15 +93,16 @@ export function mountGameScreen(_root: HTMLElement): void {
   const handlers = attachInputHandlers(canvasWrapper, puzzle, theme, () => state, {
     onPlace(suspectId, x, y) {
       if (state.phase !== 'playing') return;
-      undoStack.push(state.placements);
+      undoStack.push(takeSnapshot(state));
       state = placeSuspect(state, puzzle, suspectId, x, y);
+      state = clearCandidatesForPlacement(state, suspectId, x, y);
       savePlacements(key, state);
       playSound(state.satisfiedClues.size > 0 ? 'clue-satisfied' : 'place');
       redraw();
     },
     onRemove(suspectId) {
       if (state.phase !== 'playing') return;
-      undoStack.push(state.placements);
+      undoStack.push(takeSnapshot(state));
       state = removeSuspect(state, puzzle, suspectId);
       savePlacements(key, state);
       playSound('remove');
@@ -112,6 +124,27 @@ export function mountGameScreen(_root: HTMLElement): void {
         showClueGateMessage(document.body);
       }
     },
+    onToggleX(x, y) {
+      if (state.phase !== 'playing') return;
+      undoStack.push(takeSnapshot(state));
+      state = toggleXAnnotation(state, x, y);
+      savePlacements(key, state);
+      redraw();
+    },
+    onAddCandidate(suspectId, x, y) {
+      if (state.phase !== 'playing') return;
+      undoStack.push(takeSnapshot(state));
+      state = addCandidateAnnotation(state, x, y, suspectId);
+      savePlacements(key, state);
+      redraw();
+    },
+    onRemoveCandidate(suspectId, x, y) {
+      if (state.phase !== 'playing') return;
+      undoStack.push(takeSnapshot(state));
+      state = removeCandidateAnnotation(state, x, y, suspectId);
+      savePlacements(key, state);
+      redraw();
+    },
   });
 
   // ── Undo/redo ──────────────────────────────────────────────────────────────
@@ -122,12 +155,12 @@ export function mountGameScreen(_root: HTMLElement): void {
   redoBtn.addEventListener('click', doRedo);
 
   function doUndo(): void {
-    const snap = undoStack.undo(state.placements);
-    if (snap) { state = restoreSnapshot(state, puzzle, snap); redraw(); }
+    const snap = undoStack.undo(takeSnapshot(state));
+    if (snap) { state = restoreFromSnapshot(state, puzzle, snap as GameSnapshot); redraw(); }
   }
   function doRedo(): void {
-    const snap = undoStack.redo(state.placements);
-    if (snap) { state = restoreSnapshot(state, puzzle, snap); redraw(); }
+    const snap = undoStack.redo(takeSnapshot(state));
+    if (snap) { state = restoreFromSnapshot(state, puzzle, snap as GameSnapshot); redraw(); }
   }
 
   // ── Mute ───────────────────────────────────────────────────────────────────
@@ -149,8 +182,9 @@ export function mountGameScreen(_root: HTMLElement): void {
   if (import.meta.env.DEV || import.meta.env.MODE === 'test') {
     (window as AlibiWindow).__alibi_placeSuspect = (suspectId: string, x: number, y: number) => {
       if (state.phase !== 'playing') return;
-      undoStack.push(state.placements);
+      undoStack.push(takeSnapshot(state));
       state = placeSuspect(state, puzzle, suspectId, x, y);
+      state = clearCandidatesForPlacement(state, suspectId, x, y);
       savePlacements(key, state);  // persist for save/resume tests
       redraw();
     };
@@ -160,10 +194,12 @@ export function mountGameScreen(_root: HTMLElement): void {
   const saved = loadPuzzleState(key);
   if (saved && Object.keys(saved.placements).length > 0) {
     showResumePrompt(screen, () => {
-      const snap = new Map<string, import('../engine/logic').SuspectPlacement>(
+      const snapPlacements = new Map<string, import('../engine/logic').SuspectPlacement>(
         Object.entries(saved.placements).map(([id, pos]) => [id, { suspectId: id, x: pos.x, y: pos.y }])
       );
-      state = restoreSnapshot(createGameState(puzzle), puzzle, snap);
+      const snapAnnotations = saved.annotations ?? { x: [], candidates: {} };
+      const snap: GameSnapshot = { placements: snapPlacements, annotations: snapAnnotations };
+      state = restoreFromSnapshot(createGameState(puzzle), puzzle, snap);
       state = { ...state, elapsedMs: saved.elapsedMs };
       redraw();
       showNarrativeIntro(document.body, puzzle, () => {});

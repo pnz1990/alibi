@@ -1,5 +1,5 @@
 /**
- * Game state — tracks placements, clue satisfaction, and game phase.
+ * Game state — tracks placements, annotations, clue satisfaction, and game phase.
  *
  * Pure data + pure functions. No DOM, no canvas, no localStorage.
  * Delegates all clue evaluation to src/engine/clues.ts.
@@ -7,6 +7,7 @@
 
 import type { Puzzle } from '../engine/generator';
 import type { SuspectPlacement } from '../engine/logic';
+import type { CellAnnotations } from '../storage/schema';
 import { evaluateClue } from '../engine/clues';
 import { getVictimCell } from '../engine/logic';
 
@@ -14,12 +15,17 @@ export type GamePhase = 'playing' | 'guilty' | 'ended';
 
 export interface GameState {
   placements:     Map<string, SuspectPlacement>;
+  annotations:    CellAnnotations;
   satisfiedClues: Set<number>;
   errorClues:     Set<number>;
   victimVisible:  boolean;
   victimCell:     { x: number; y: number } | null;
   phase:          GamePhase;
   elapsedMs:      number;
+}
+
+export function emptyAnnotations(): CellAnnotations {
+  return { x: [], candidates: {} };
 }
 
 /**
@@ -29,6 +35,7 @@ export interface GameState {
 export function createGameState(_puzzle: Puzzle): GameState {
   return {
     placements:     new Map(),
+    annotations:    emptyAnnotations(),
     satisfiedClues: new Set(),
     errorClues:     new Set(),
     victimVisible:  false,
@@ -117,4 +124,122 @@ function recompute(state: GameState, puzzle: Puzzle): GameState {
     victimVisible,
     victimCell,
   };
+}
+
+// ─────────────────────────────────────────────
+// Annotation mutations (pure functions)
+// ─────────────────────────────────────────────
+
+/** Clones a CellAnnotations object deeply. */
+function cloneAnnotations(a: CellAnnotations): CellAnnotations {
+  return {
+    x: [...a.x.map(([cx, cy]) => [cx, cy] as [number, number])],
+    candidates: Object.fromEntries(
+      Object.entries(a.candidates).map(([k, v]) => [k, [...v]])
+    ),
+  };
+}
+
+/**
+ * Toggles the X mark on a cell. If X is present, removes it. If absent, adds it.
+ * Returns a new GameState.
+ */
+export function toggleXAnnotation(state: GameState, x: number, y: number): GameState {
+  const ann = cloneAnnotations(state.annotations);
+  const idx = ann.x.findIndex(([cx, cy]) => cx === x && cy === y);
+  if (idx >= 0) {
+    ann.x.splice(idx, 1);
+  } else {
+    ann.x.push([x, y]);
+  }
+  return { ...state, annotations: ann };
+}
+
+/**
+ * Adds a candidate suspect ? to a cell. No-op if already present.
+ */
+export function addCandidateAnnotation(
+  state: GameState,
+  x: number,
+  y: number,
+  suspectId: string,
+): GameState {
+  const ann = cloneAnnotations(state.annotations);
+  const key = `${x},${y}`;
+  if (!ann.candidates[key]) ann.candidates[key] = [];
+  if (!ann.candidates[key].includes(suspectId)) {
+    ann.candidates[key] = [...ann.candidates[key], suspectId];
+  }
+  return { ...state, annotations: ann };
+}
+
+/**
+ * Removes a candidate suspect ? from a cell.
+ */
+export function removeCandidateAnnotation(
+  state: GameState,
+  x: number,
+  y: number,
+  suspectId: string,
+): GameState {
+  const ann = cloneAnnotations(state.annotations);
+  const key = `${x},${y}`;
+  if (ann.candidates[key]) {
+    ann.candidates[key] = ann.candidates[key].filter(id => id !== suspectId);
+    if (ann.candidates[key].length === 0) delete ann.candidates[key];
+  }
+  return { ...state, annotations: ann };
+}
+
+/**
+ * Clears all annotation for a cell (X and all candidates).
+ */
+export function clearCellAnnotations(state: GameState, x: number, y: number): GameState {
+  const ann = cloneAnnotations(state.annotations);
+  const idx = ann.x.findIndex(([cx, cy]) => cx === x && cy === y);
+  if (idx >= 0) ann.x.splice(idx, 1);
+  const key = `${x},${y}`;
+  delete ann.candidates[key];
+  return { ...state, annotations: ann };
+}
+
+/**
+ * When a suspect is placed at a cell, clears ? candidates for that suspect in all other cells,
+ * and clears the candidate list for the target cell.
+ */
+export function clearCandidatesForPlacement(
+  state: GameState,
+  suspectId: string,
+  x: number,
+  y: number,
+): GameState {
+  const ann = cloneAnnotations(state.annotations);
+  // Clear ? for this suspect in all cells
+  for (const key of Object.keys(ann.candidates)) {
+    ann.candidates[key] = ann.candidates[key].filter(id => id !== suspectId);
+    if (ann.candidates[key].length === 0) delete ann.candidates[key];
+  }
+  // Also clear X on the target cell (if present — can't mark X where you place)
+  const idx = ann.x.findIndex(([cx, cy]) => cx === x && cy === y);
+  if (idx >= 0) ann.x.splice(idx, 1);
+  return { ...state, annotations: ann };
+}
+
+/**
+ * Returns a snapshot of (placements + annotations) for undo/redo.
+ */
+export interface GameSnapshot {
+  placements:  Map<string, SuspectPlacement>;
+  annotations: CellAnnotations;
+}
+
+export function takeSnapshot(state: GameState): GameSnapshot {
+  return {
+    placements:  new Map(state.placements),
+    annotations: cloneAnnotations(state.annotations),
+  };
+}
+
+export function restoreFromSnapshot(state: GameState, puzzle: Puzzle, snap: GameSnapshot): GameState {
+  return recompute({ ...state, placements: new Map(snap.placements), annotations: cloneAnnotations(snap.annotations) }, puzzle);
 }
