@@ -24,7 +24,8 @@ import type { GameState, GameSnapshot } from '../game/state';
 import { UndoStack } from '../game/undo';
 import { playSound, toggleMute } from '../game/sound';
 import { generateShareText, copyToClipboard } from '../game/share';
-import { savePuzzleState, loadPuzzleState, clearPuzzleState } from '../storage/progress';
+import { savePuzzleState, loadPuzzleState, clearPuzzleState, loadCampaign, saveCampaign } from '../storage/progress';
+import { completeCampaignCase } from '../modes/campaign';
 import { attachInputHandlers } from '../game/input';
 
 type AlibiWindow = Window & {
@@ -42,6 +43,12 @@ export function mountGameScreen(_root: HTMLElement): void {
   const themeId    = params.get('theme')      ?? 'coffee-shop';
   const difficulty = (params.get('difficulty') ?? 'easy') as Difficulty;
   const seed       = parseInt(params.get('seed') ?? '0', 10);
+
+  // Campaign context — present when launched from campaign board
+  const campaignSlotParam = params.get('campaignSlot');
+  const campaignCaseParam = params.get('campaignCase');
+  const campaignSlot = campaignSlotParam ? (parseInt(campaignSlotParam, 10) as 1 | 2 | 3) : null;
+  const campaignCase = campaignCaseParam ? parseInt(campaignCaseParam, 10) : null;
 
   const theme  = getTheme(themeId);
   const puzzle = generatePuzzle(seed, theme, difficulty);
@@ -123,6 +130,25 @@ export function mountGameScreen(_root: HTMLElement): void {
         redraw();
         showGuiltyScreen(document.body, puzzle);
         addShareButton(puzzle, state);
+
+        // Campaign completion: persist progress and return to board after delay
+        if (campaignSlot !== null && campaignCase !== null) {
+          const save = loadCampaign(campaignSlot);
+          if (save) {
+            const updated = completeCampaignCase(
+              save,
+              campaignCase,
+              state.elapsedMs,
+              puzzle.killer.name,
+            );
+            saveCampaign(updated);
+            // Navigate back to campaign board after GUILTY screen (3s delay)
+            setTimeout(() => {
+              window.location.href =
+                `${window.location.pathname}?mode=campaign&campaignSlot=${campaignSlot}`;
+            }, 3000);
+          }
+        }
       } else {
         playSound('error');
         redraw();
