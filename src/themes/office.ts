@@ -51,7 +51,7 @@ const clueTemplates: ClueTemplates = {
   inRow: (s, r) => pickVariant([
     `${s} was in the ${ordinal(r)} row.`,
     `${s}'s workstation was on row ${r}.`,
-    `${s} was at the ${ordinal(r)} row of desks.`,
+    `${s} was on the ${ordinal(r)} row of the floor plan.`,
   ], s + r),
 
   besideSuspect: (s, o) => pickVariant([
@@ -96,13 +96,13 @@ const clueTemplates: ClueTemplates = {
 
   northOf: (s, o) => pickVariant([
     `${s} was north of ${o}.`,
-    `${s}'s desk was closer to the entrance than ${o}'s.`,
-    `${s} was in the front of the office relative to ${o}.`,
+    `${s} was closer to the entrance than ${o}.`,
+    `${s} was in the front section of the office relative to ${o}.`,
   ], s + o),
 
   southOf: (s, o) => pickVariant([
     `${s} was south of ${o}.`,
-    `${s}'s desk was deeper in the office than ${o}'s.`,
+    `${s} was further from the entrance than ${o}.`,
     `${s} was in the back section relative to ${o}.`,
   ], s + o),
 

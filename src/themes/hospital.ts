@@ -45,12 +45,12 @@ const clueTemplates: ClueTemplates = {
   inColumn: (s, c) => pickVariant([
     `${s} was in the ${ordinal(c)} column.`,
     `${s}'s position was column ${c}.`,
-    `${s} was in the ${ordinal(c)} column of the ward.`,
+    `${s} was recorded in column ${c}.`,
   ], s + c),
 
   inRow: (s, r) => pickVariant([
     `${s} was in the ${ordinal(r)} row.`,
-    `${s} was assigned to row ${r} of the ward.`,
+    `${s} was logged at row ${r}.`,
     `${s}'s position was on the ${ordinal(r)} row.`,
   ], s + r),
 
@@ -107,12 +107,12 @@ const clueTemplates: ClueTemplates = {
   northOf: (s, o) => pickVariant([
     `${s} was north of ${o}.`,
     `${s}'s position was closer to the entrance than ${o}'s.`,
-    `${s} was in the front section of the ward relative to ${o}.`,
+    `${s} was further north in the building than ${o}.`,
   ], s + o),
 
   southOf: (s, o) => pickVariant([
     `${s} was south of ${o}.`,
-    `${s} was deeper in the ward than ${o}.`,
+    `${s} was further back in the building than ${o}.`,
     `${s}'s position was further from the entrance than ${o}'s.`,
   ], s + o),
 
