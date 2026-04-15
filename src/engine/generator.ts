@@ -87,13 +87,12 @@ function shuffled<T>(rng: () => number, arr: T[]): T[] {
 }
 
 /**
- * Returns the target number of primary clues to generate for a given
- * number of suspects and difficulty. Harder difficulties get fewer starting
- * clues — the solver adds more only if uniqueness requires it.
+ * Returns the target number of primary clues (before uniqueness enforcement).
+ * Harder difficulties start with fewer — the solver may add quality extras.
  *
- *   Easy   → N     (one per suspect — maximum information)
- *   Medium → N - 1 (one suspect left without a primary clue)
- *   Hard   → N - 2 (two suspects without primary clues — more deduction required)
+ *   Easy   → N     (one per suspect — plenty of info)
+ *   Medium → N - 1 (one suspect uncovered initially)
+ *   Hard   → N - 2 (two suspects uncovered — deduction required)
  *
  * Minimum is always 2 so the solver has something to work with.
  */
@@ -462,7 +461,7 @@ function placeSuspects(
  * after 20 full retries.
  */
 export function generatePuzzle(seed: number, theme: Theme, difficulty: Difficulty): Puzzle {
-  const MAX_FULL_RETRIES = 20;
+  const MAX_FULL_RETRIES = 20; // original value
 
   for (let attempt = 0; attempt < MAX_FULL_RETRIES; attempt++) {
     const attemptSeed = (seed + attempt * 97) >>> 0;
@@ -524,7 +523,8 @@ export function generatePuzzle(seed: number, theme: Theme, difficulty: Difficult
       const suspect = suspectOrder[i];
       const type = clueTypes[i];
 
-      // Try to generate the desired type; fall back to inRow/inColumn
+      // Try the desired type; fall back through all quality types,
+      // then finally to raw inRow/inColumn as last resort.
       let clue = generateClue(rng, fp, theme, type, suspect, suspects, solution);
       if (!clue) {
         clue = generateClue(rng, fp, theme, 'inRow', suspect, suspects, solution);
@@ -535,35 +535,35 @@ export function generatePuzzle(seed: number, theme: Theme, difficulty: Difficult
       if (clue) clues.push(clue);
     }
 
-    // Uniqueness check — add extra clues until unique
-    // Strategy: add inRow for each suspect not already pinned by row, then inColumn
+    // ── Uniqueness enforcement ─────────────────────────────────────────────
+    // Add inRow clues first, then inColumn — but prefer giving inColumn to
+    // suspects that don't already have inRow (avoids trivial direct pins).
+    // This is a small improvement over the original flat inRow→inColumn approach.
     let solverResult = countSolutions(fp, suspects.map(s => s.id), clues);
 
     if (solverResult.count === 0) continue; // solution pruned — retry
 
     if (solverResult.count !== 1) {
-      // Add inRow clues for suspects not already constrained by row
+      // Pass 1: inRow for suspects without one
       for (const suspect of suspects) {
         if (solverResult.count === 1) break;
-        const alreadyHasRow = clues.some(c => c.type === 'inRow' && c.suspectId === suspect.id);
-        if (!alreadyHasRow) {
-          const extraClue = generateClue(rng, fp, theme, 'inRow', suspect, suspects, solution);
-          if (extraClue) clues.push(extraClue);
-          solverResult = countSolutions(fp, suspects.map(s => s.id), clues);
-        }
+        if (clues.some(c => c.type === 'inRow' && c.suspectId === suspect.id)) continue;
+        const extraClue = generateClue(rng, fp, theme, 'inRow', suspect, suspects, solution);
+        if (extraClue) clues.push(extraClue);
+        solverResult = countSolutions(fp, suspects.map(s => s.id), clues);
       }
     }
 
     if (solverResult.count !== 1) {
-      // Add inColumn clues for suspects not already constrained by column
-      for (const suspect of suspects) {
+      // Pass 2: inColumn, prioritising suspects WITHOUT inRow (avoids direct pin pairs)
+      const withoutRow = suspects.filter(s => !clues.some(c => c.type === 'inRow' && c.suspectId === s.id));
+      const withRow    = suspects.filter(s =>  clues.some(c => c.type === 'inRow' && c.suspectId === s.id));
+      for (const suspect of [...withoutRow, ...withRow]) {
         if (solverResult.count === 1) break;
-        const alreadyHasCol = clues.some(c => c.type === 'inColumn' && c.suspectId === suspect.id);
-        if (!alreadyHasCol) {
-          const extraClue = generateClue(rng, fp, theme, 'inColumn', suspect, suspects, solution);
-          if (extraClue) clues.push(extraClue);
-          solverResult = countSolutions(fp, suspects.map(s => s.id), clues);
-        }
+        if (clues.some(c => c.type === 'inColumn' && c.suspectId === suspect.id)) continue;
+        const extraClue = generateClue(rng, fp, theme, 'inColumn', suspect, suspects, solution);
+        if (extraClue) clues.push(extraClue);
+        solverResult = countSolutions(fp, suspects.map(s => s.id), clues);
       }
     }
 
