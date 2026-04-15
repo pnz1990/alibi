@@ -11,7 +11,7 @@ import type { Difficulty } from '../storage/schema';
 import type { Puzzle } from '../engine/generator';
 import { generatePuzzle } from '../engine/generator';
 import { getTheme } from '../themes/index';
-import { renderGrid, getCanvasSize } from '../render/canvas';
+import { renderGrid, getCanvasSize, updateCellSize } from '../render/canvas';
 import { renderSidebar } from '../render/ui';
 import { showNarrativeIntro, showGuiltyScreen, showClueGateMessage } from '../render/overlay';
 import {
@@ -58,13 +58,18 @@ export function mountGameScreen(_root: HTMLElement): void {
 
   const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
   const ctx    = canvas.getContext('2d')!;
-  const { width, height } = getCanvasSize(puzzle);
-  canvas.width  = width;
-  canvas.height = height;
-  // Mobile: scale canvas to fit viewport width
-  canvas.style.maxWidth  = '100%';
-  canvas.style.maxHeight = '100vh';
-  canvas.style.objectFit = 'contain';
+  canvas.style.imageRendering = 'pixelated';
+
+  function resizeAndRedraw(): void {
+    updateCellSize(puzzle.floorPlan.width, puzzle.floorPlan.height);
+    const { width, height } = getCanvasSize(puzzle);
+    canvas.width  = width;
+    canvas.height = height;
+    canvas.style.width  = `${width}px`;
+    canvas.style.height = `${height}px`;
+    redraw();
+  }
+
   canvasWrapper.appendChild(canvas);
 
   let state = createGameState(puzzle);
@@ -84,7 +89,7 @@ export function mountGameScreen(_root: HTMLElement): void {
   }
 
   function redraw(): void {
-    renderGrid(ctx, puzzle, theme, state.placements, state.victimCell, state.annotations);
+    renderGrid(ctx, puzzle, theme, state.placements, state.victimCell, state.annotations, () => redraw());
     renderSidebar(sidebarContainer, puzzle, state.placements, state.satisfiedClues, state.errorClues);
     handlers.updateOverlays();
   }
@@ -201,7 +206,7 @@ export function mountGameScreen(_root: HTMLElement): void {
       const snap: GameSnapshot = { placements: snapPlacements, annotations: snapAnnotations };
       state = restoreFromSnapshot(createGameState(puzzle), puzzle, snap);
       state = { ...state, elapsedMs: saved.elapsedMs };
-      redraw();
+      resizeAndRedraw();
       showNarrativeIntro(document.body, puzzle, () => {});
     }, () => {
       clearPuzzleState(key);
@@ -211,7 +216,11 @@ export function mountGameScreen(_root: HTMLElement): void {
     showNarrativeIntro(document.body, puzzle, () => {});
   }
 
-  redraw();
+  resizeAndRedraw();
+
+  // Responsive resize
+  const resizeObserver = new ResizeObserver(() => resizeAndRedraw());
+  resizeObserver.observe(document.body);
 }
 
 // ─────────────────────────────────────────────
@@ -220,19 +229,62 @@ export function mountGameScreen(_root: HTMLElement): void {
 
 const SCREEN_STYLES = `
 .alibi-game-screen {
-  display: flex; align-items: flex-start; gap: 0;
-  height: 100vh; overflow: hidden; background: #1a1a2e;
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  height: 100vh;
+  overflow: hidden;
+  background: #0d0d1a;
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(255,255,255,0.012) 0px,
+    rgba(255,255,255,0.012) 1px,
+    transparent 1px,
+    transparent 8px
+  );
 }
-.alibi-canvas-wrapper { flex-shrink: 0; overflow: auto; position: relative; }
-.alibi-sidebar-container { flex: 1; height: 100vh; overflow-y: auto; display: flex; flex-direction: column; }
+.alibi-grid-panel {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  position: relative;
+}
+.alibi-canvas-wrapper {
+  overflow: hidden;
+  position: relative;
+  border: 3px solid #8b6914;
+  box-shadow: 4px 4px 0 rgba(0,0,0,0.6), 0 0 32px rgba(139,105,20,0.2);
+  background: #1a120a;
+}
+.alibi-sidebar-container {
+  flex: 1;
+  height: 100vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  border-left: 2px solid #8b6914;
+  box-shadow: -4px 0 16px rgba(0,0,0,0.4);
+  min-width: 200px;
+  max-width: 300px;
+}
 .alibi-toolbar {
-  display: flex; gap: 6px; padding: 8px 10px;
-  background: #0a0a12; border-bottom: 2px solid #333; flex-shrink: 0;
+  display: flex;
+  gap: 6px;
+  padding: 8px 10px;
+  background: #0a0a12;
+  border-bottom: 2px solid #333;
+  flex-shrink: 0;
 }
 .alibi-toolbar button {
-  background: #1a1a2e; color: #ccc; border: 2px solid #444;
+  background: #1a1a2e;
+  color: #ccc;
+  border: 2px solid #444;
   border-radius: 0;
-  padding: 5px 10px; font-family: 'Press Start 2P', monospace; font-size: 8px;
+  padding: 5px 10px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
   cursor: pointer;
   box-shadow: 2px 2px 0 #000;
 }
@@ -255,11 +307,19 @@ function buildScreen(): HTMLElement {
   screen.setAttribute('data-testid', 'screen-game');
   screen.className = 'alibi-game-screen';
 
+  // Grid panel (left side — canvas centered within padding)
+  const gridPanel = document.createElement('div');
+  gridPanel.className = 'alibi-grid-panel';
+  gridPanel.style.cssText = 'flex:1;display:flex;align-items:center;justify-content:center;padding:16px;overflow:hidden;';
+
   const canvasWrapper = document.createElement('div');
   canvasWrapper.className = 'alibi-canvas-wrapper';
 
+  gridPanel.appendChild(canvasWrapper);
+
+  // Right pane: toolbar + sidebar
   const rightPane = document.createElement('div');
-  rightPane.style.cssText = 'display:flex;flex-direction:column;height:100vh;flex:1;';
+  rightPane.style.cssText = 'display:flex;flex-direction:column;height:100vh;width:280px;flex-shrink:0;';
 
   const toolbar = document.createElement('div');
   toolbar.className = 'alibi-toolbar';
@@ -272,7 +332,7 @@ function buildScreen(): HTMLElement {
   sidebarContainer.className = 'alibi-sidebar-container';
 
   rightPane.append(toolbar, sidebarContainer);
-  screen.append(canvasWrapper, rightPane);
+  screen.append(gridPanel, rightPane);
 
   const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
   canvas.parentElement?.insertBefore(screen, canvas);
