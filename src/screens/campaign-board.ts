@@ -1,14 +1,17 @@
 /**
- * Campaign board screen — shows 12 case cards for a campaign.
+ * Campaign board screen — shows slot picker or 12-case board loaded from CampaignSave.
  *
- * Stub implementation for Stage 3. Full campaign logic (seed derivation,
- * save slots, CampaignSave) is implemented in item #17.
+ * If no saves exist: auto-creates a new campaign in slot 1 and shows the board.
+ * If saves exist: shows a slot picker (up to 3 slots) before showing the board.
  *
- * Displays a fixed 12-case layout with Case 0 unlocked, rest locked.
+ * Campaign logic lives in src/modes/campaign.ts.
+ * All localStorage access goes through src/storage/progress.ts.
  */
 
-// getDailySeed reserved for future daily integration (item #17)
-// import { getDailySeed } from './home';
+import type { CampaignSave } from '../storage/schema';
+import { loadCampaign, saveCampaign } from '../storage/progress';
+import { createNewCampaign } from '../modes/campaign';
+import { getTheme } from '../themes/index';
 
 const BOARD_STYLES = `
 .alibi-campaign-board {
@@ -64,6 +67,7 @@ const BOARD_STYLES = `
   cursor: default;
 }
 .alibi-case-card.unlocked { border-color: #c0392b; }
+.alibi-case-card.solved { border-color: #2d8a2d; }
 .alibi-case-num {
   font-size: 0.75em;
   color: #888;
@@ -88,7 +92,74 @@ const BOARD_STYLES = `
 .alibi-case-difficulty.medium { background: #5a4a1a; color: #c8a03c; }
 .alibi-case-difficulty.hard   { background: #5a1a1a; color: #c87e7e; }
 .alibi-case-status { font-size: 1.2em; }
+.alibi-case-time {
+  font-size: 0.65em;
+  color: #7ec87e;
+  margin-top: 6px;
+}
+.alibi-slot-picker {
+  max-width: 600px;
+}
+.alibi-slot-picker h2 {
+  font-size: 1em;
+  color: #888;
+  margin-bottom: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.alibi-slot-card {
+  background: #1e1e35;
+  border: 2px solid #444;
+  border-radius: 8px;
+  padding: 20px;
+  cursor: pointer;
+  margin-bottom: 12px;
+  transition: border-color 0.15s, transform 0.1s;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.alibi-slot-card:hover { border-color: #c0392b; transform: translateY(-1px); }
+.alibi-slot-card.empty { opacity: 0.55; }
+.alibi-slot-card.empty:hover { border-color: #555; }
+.alibi-slot-info { flex: 1; }
+.alibi-slot-label {
+  font-size: 0.85em;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 6px;
+}
+.alibi-slot-rank {
+  font-size: 1em;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+.alibi-slot-progress {
+  font-size: 0.75em;
+  color: #aaa;
+}
+.alibi-slot-action {
+  font-size: 0.75em;
+  color: #c0392b;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.alibi-campaign-rank {
+  font-size: 0.75em;
+  color: #888;
+  margin-left: auto;
+  padding-left: 24px;
+}
 `;
+
+const RANK_ICONS: Record<string, string> = {
+  rookie:       '🔍 Rookie',
+  investigator: '🔎 Investigator',
+  detective:    '🕵 Detective',
+  senior:       '🕵️ Senior Detective',
+  chief:        '⭐ Chief Inspector',
+};
 
 let boardStylesInjected = false;
 function injectBoardStyles(): void {
@@ -99,32 +170,109 @@ function injectBoardStyles(): void {
   boardStylesInjected = true;
 }
 
-const CASE_TEMPLATE: Array<{ title: string; difficulty: 'easy' | 'medium' | 'hard'; seed: number }> = [
-  { title: 'The Coffee Shop',  difficulty: 'easy',   seed: 100 },
-  { title: 'The Bookstore',    difficulty: 'easy',   seed: 101 },
-  { title: 'The Backyard',     difficulty: 'easy',   seed: 102 },
-  { title: 'The Holiday Mall', difficulty: 'easy',   seed: 103 },
-  { title: 'The Coffee Shop',  difficulty: 'medium', seed: 200 },
-  { title: 'The Bookstore',    difficulty: 'medium', seed: 201 },
-  { title: 'The Backyard',     difficulty: 'medium', seed: 202 },
-  { title: 'The Holiday Mall', difficulty: 'medium', seed: 203 },
-  { title: 'The Coffee Shop',  difficulty: 'hard',   seed: 300 },
-  { title: 'The Bookstore',    difficulty: 'hard',   seed: 301 },
-  { title: 'The Backyard',     difficulty: 'hard',   seed: 302 },
-  { title: 'The Holiday Mall', difficulty: 'hard',   seed: 303 },
-];
+function formatTime(ms: number): string {
+  const s = Math.floor(ms / 1000);
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${m}:${sec.toString().padStart(2, '0')}`;
+}
 
-export function mountCampaignBoard(): void {
-  injectBoardStyles();
+function themeName(themeId: string): string {
+  try {
+    return getTheme(themeId).name;
+  } catch {
+    return themeId;
+  }
+}
 
-  const canvas = document.getElementById('game-canvas');
-  if (canvas) canvas.style.display = 'none';
+/** Shows the 12-case board for a given CampaignSave. */
+function showCaseBoard(save: CampaignSave, screen: HTMLElement): void {
+  screen.innerHTML = '';
 
-  const screen = document.createElement('div');
-  screen.setAttribute('data-testid', 'screen-campaign-board');
-  screen.className = 'alibi-campaign-board';
+  const header = document.createElement('div');
+  header.className = 'alibi-campaign-header';
 
-  // Header
+  const backBtn = document.createElement('button');
+  backBtn.className = 'alibi-campaign-back';
+  backBtn.textContent = '← Home';
+  backBtn.addEventListener('click', () => {
+    screen.remove();
+    window.location.href = window.location.pathname;
+  });
+
+  const h1 = document.createElement('h1');
+  h1.textContent = '📁 Campaign';
+
+  const rankEl = document.createElement('div');
+  rankEl.className = 'alibi-campaign-rank';
+  rankEl.textContent = RANK_ICONS[save.rank] ?? save.rank;
+
+  header.append(backBtn, h1, rankEl);
+
+  const grid = document.createElement('div');
+  grid.className = 'alibi-case-grid';
+
+  save.cases.forEach((c, i) => {
+    const isUnlocked = c.status === 'in_progress' || c.status === 'solved';
+    const isSolved   = c.status === 'solved';
+    const isLocked   = c.status === 'locked';
+
+    const card = document.createElement('div');
+    card.setAttribute('data-testid', `case-card-${i}`);
+    let cardClass = 'alibi-case-card';
+    if (isLocked)   cardClass += ' locked';
+    if (isSolved)   cardClass += ' solved';
+    if (!isLocked && !isSolved) cardClass += ' unlocked';
+    card.className = cardClass;
+
+    const num = document.createElement('div');
+    num.className = 'alibi-case-num';
+    num.textContent = `Case ${i + 1}`;
+
+    const title = document.createElement('div');
+    title.className = 'alibi-case-title';
+    title.textContent = isUnlocked ? themeName(c.themeId) : '???';
+
+    const diff = document.createElement('div');
+    diff.className = `alibi-case-difficulty ${c.difficulty}`;
+    diff.textContent = c.difficulty.charAt(0).toUpperCase() + c.difficulty.slice(1);
+
+    const statusEl = document.createElement('div');
+    statusEl.setAttribute('data-testid', `case-status-${i}`);
+    statusEl.className = `alibi-case-status${isLocked ? ' locked' : ''}`;
+    statusEl.textContent = isSolved ? '✅' : isLocked ? '🔒' : '📁';
+
+    card.append(num, title, diff, statusEl);
+
+    if (isSolved && c.solveTimeMs != null) {
+      const timeEl = document.createElement('div');
+      timeEl.className = 'alibi-case-time';
+      timeEl.textContent = `⏱ ${formatTime(c.solveTimeMs)}`;
+      card.appendChild(timeEl);
+    }
+
+    if (!isLocked) {
+      card.addEventListener('click', () => {
+        screen.remove();
+        window.location.href =
+          `${window.location.pathname}?theme=${c.themeId}&difficulty=${c.difficulty}` +
+          `&seed=${c.seed}&campaignSlot=${save.slot}&campaignCase=${i}`;
+      });
+    }
+
+    grid.appendChild(card);
+  });
+
+  screen.append(header, grid);
+}
+
+/** Shows the slot picker when multiple slots exist. */
+function showSlotPicker(
+  saves: Array<CampaignSave | null>,
+  screen: HTMLElement,
+): void {
+  screen.innerHTML = '';
+
   const header = document.createElement('div');
   header.className = 'alibi-campaign-header';
 
@@ -140,44 +288,105 @@ export function mountCampaignBoard(): void {
   h1.textContent = '📁 Campaign';
   header.append(backBtn, h1);
 
-  // Case grid
-  const grid = document.createElement('div');
-  grid.className = 'alibi-case-grid';
+  const picker = document.createElement('div');
+  picker.className = 'alibi-slot-picker';
 
-  CASE_TEMPLATE.forEach((c, i) => {
+  const subtitle = document.createElement('h2');
+  subtitle.textContent = 'Choose Save Slot';
+  picker.appendChild(subtitle);
+
+  saves.forEach((save, idx) => {
+    const slotNum = (idx + 1) as 1 | 2 | 3;
     const card = document.createElement('div');
-    card.setAttribute('data-testid', `case-card-${i}`);
-    card.className = `alibi-case-card ${i === 0 ? 'unlocked' : 'locked'}`;
+    card.setAttribute('data-testid', `slot-card-${slotNum}`);
+    card.className = `alibi-slot-card${save ? '' : ' empty'}`;
 
-    const num = document.createElement('div');
-    num.className = 'alibi-case-num';
-    num.textContent = `Case ${i + 1}`;
+    const info = document.createElement('div');
+    info.className = 'alibi-slot-info';
 
-    const title = document.createElement('div');
-    title.className = 'alibi-case-title';
-    title.textContent = i === 0 ? c.title : '???';
+    const label = document.createElement('div');
+    label.className = 'alibi-slot-label';
+    label.textContent = `Save Slot ${slotNum}`;
 
-    const diff = document.createElement('div');
-    diff.className = `alibi-case-difficulty ${c.difficulty}`;
-    diff.textContent = c.difficulty.charAt(0).toUpperCase() + c.difficulty.slice(1);
+    info.appendChild(label);
 
-    const statusEl = document.createElement('div');
-    statusEl.setAttribute('data-testid', `case-status-${i}`);
-    statusEl.className = `alibi-case-status ${i === 0 ? '' : 'locked'}`;
-    statusEl.textContent = i === 0 ? '📁' : '🔒';
+    if (save) {
+      const rank = document.createElement('div');
+      rank.className = 'alibi-slot-rank';
+      rank.textContent = RANK_ICONS[save.rank] ?? save.rank;
 
-    card.append(num, title, diff, statusEl);
+      const solved = save.cases.filter(c => c.status === 'solved').length;
+      const progress = document.createElement('div');
+      progress.className = 'alibi-slot-progress';
+      progress.textContent = `Case ${save.currentCase + 1} of 12 · ${solved} solved · ${new Date(save.startedAt).toLocaleDateString()}`;
 
-    if (i === 0) {
-      card.addEventListener('click', () => {
-        screen.remove();
-        window.location.href = `${window.location.pathname}?theme=coffee-shop&difficulty=${c.difficulty}&seed=${c.seed}`;
-      });
+      info.append(rank, progress);
+    } else {
+      const empty = document.createElement('div');
+      empty.className = 'alibi-slot-rank';
+      empty.textContent = 'Empty';
+      info.appendChild(empty);
     }
 
-    grid.appendChild(card);
+    const action = document.createElement('div');
+    action.className = 'alibi-slot-action';
+    action.textContent = save ? 'Continue →' : 'New →';
+
+    card.append(info, action);
+
+    card.addEventListener('click', () => {
+      if (save) {
+        showCaseBoard(save, screen);
+      } else {
+        const newSave = createNewCampaign(slotNum);
+        saveCampaign(newSave);
+        showCaseBoard(newSave, screen);
+      }
+    });
+
+    picker.appendChild(card);
   });
 
-  screen.append(header, grid);
+  screen.append(header, picker);
+}
+
+export function mountCampaignBoard(): void {
+  injectBoardStyles();
+
+  const canvas = document.getElementById('game-canvas');
+  if (canvas) canvas.style.display = 'none';
+
+  const screen = document.createElement('div');
+  screen.setAttribute('data-testid', 'screen-campaign-board');
+  screen.className = 'alibi-campaign-board';
   document.body.appendChild(screen);
+
+  // Load all 3 slots
+  const slot1 = loadCampaign(1);
+  const slot2 = loadCampaign(2);
+  const slot3 = loadCampaign(3);
+
+  const anySave = slot1 ?? slot2 ?? slot3;
+
+  if (!anySave) {
+    // No saves: auto-create slot 1 and show the board immediately.
+    // This keeps e2e tests working (they start with empty localStorage).
+    const newSave = createNewCampaign(1);
+    saveCampaign(newSave);
+    showCaseBoard(newSave, screen);
+  } else {
+    // Check if URL requests a specific slot directly
+    const params = new URLSearchParams(location.search);
+    const slotParam = params.get('campaignSlot');
+    if (slotParam) {
+      const slotNum = parseInt(slotParam, 10) as 1 | 2 | 3;
+      const directSave = loadCampaign(slotNum);
+      if (directSave) {
+        showCaseBoard(directSave, screen);
+        return;
+      }
+    }
+    // Show slot picker
+    showSlotPicker([slot1, slot2, slot3], screen);
+  }
 }
