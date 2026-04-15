@@ -21,5 +21,8 @@
     "typescript": "^5.4.5",
     "vite": "^5.2.8",
     "vitest": "^1.5.0"
+  },
+  "dependencies": {
+    "@fontsource/press-start-2p": "^5.2.7"
   }
 }

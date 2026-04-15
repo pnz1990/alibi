@@ -40,19 +40,25 @@ function getSprite(svgString: string): HTMLImageElement | null {
   return null;
 }
 
+const PIXEL_FONT = "'Press Start 2P', monospace";
+
 function drawFallbackObject(
   ctx: CanvasRenderingContext2D,
   px: number,
   py: number,
   label: string,
 ): void {
+  // Pixel-art object placeholder: warm beige background with dark 2px border
   ctx.fillStyle = '#c8a96e';
   ctx.fillRect(px, py, CELL_SIZE, CELL_SIZE);
-  ctx.fillStyle = '#ffffff';
-  ctx.font = '8px monospace';
+  ctx.strokeStyle = '#7a5c2e';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(px + 1, py + 1, CELL_SIZE - 2, CELL_SIZE - 2);
+  ctx.fillStyle = '#3a2010';
+  ctx.font = `6px ${PIXEL_FONT}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(label.slice(0, 4), px + CELL_SIZE / 2, py + CELL_SIZE / 2);
+  ctx.fillText(label.slice(0, 4).toUpperCase(), px + CELL_SIZE / 2, py + CELL_SIZE / 2);
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
 }
@@ -119,23 +125,37 @@ export function renderGrid(
       const py = y * CELL_SIZE;
 
       if (tile === 'W') {
+        // Pixel-art wall: solid fill + brick pattern
         ctx.fillStyle = palette.wall;
         ctx.fillRect(px, py, CELL_SIZE, CELL_SIZE);
+        // Brick lines: horizontal rows every 8px, vertical offset alternates
+        ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+        ctx.lineWidth = 1;
+        const brickH = 8;
+        for (let row = 0; row < CELL_SIZE / brickH; row++) {
+          const ry = py + row * brickH;
+          ctx.beginPath(); ctx.moveTo(px, ry); ctx.lineTo(px + CELL_SIZE, ry); ctx.stroke();
+          const offset = (row % 2) * (CELL_SIZE / 2);
+          ctx.beginPath(); ctx.moveTo(px + offset, ry); ctx.lineTo(px + offset, ry + brickH); ctx.stroke();
+        }
         continue;
       }
 
       if (SEAT_TILES.has(tile)) {
+        // Pixel-art seat: fill with seat color + simple seat shape
         ctx.fillStyle = palette.seat;
         ctx.fillRect(px, py, CELL_SIZE, CELL_SIZE);
-        // Seat circle indicator
-        ctx.fillStyle = 'rgba(0,0,0,0.2)';
-        ctx.beginPath();
-        ctx.arc(px + CELL_SIZE / 2, py + CELL_SIZE / 2, CELL_SIZE * 0.3, 0, Math.PI * 2);
-        ctx.fill();
-        // Grid line
-        ctx.strokeStyle = 'rgba(0,0,0,0.1)';
-        ctx.lineWidth = 0.5;
-        ctx.strokeRect(px, py, CELL_SIZE, CELL_SIZE);
+        // 1px dark border
+        ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(px + 0.5, py + 0.5, CELL_SIZE - 1, CELL_SIZE - 1);
+        // Chair silhouette: a small centered square (seat) + backrest line
+        const s = Math.floor(CELL_SIZE * 0.35);
+        const cx = px + (CELL_SIZE - s) / 2;
+        const cy = py + (CELL_SIZE - s) / 2 + 4;
+        ctx.fillStyle = 'rgba(0,0,0,0.25)';
+        ctx.fillRect(cx, cy, s, s);        // seat cushion
+        ctx.fillRect(cx, py + 6, s, 4);   // backrest
         continue;
       }
 
@@ -156,12 +176,12 @@ export function renderGrid(
         continue;
       }
 
-      // Floor tile
+      // Floor tile — pixel-art crisp 1px border
       ctx.fillStyle = palette.floor;
       ctx.fillRect(px, py, CELL_SIZE, CELL_SIZE);
-      ctx.strokeStyle = 'rgba(0,0,0,0.1)';
-      ctx.lineWidth = 0.5;
-      ctx.strokeRect(px, py, CELL_SIZE, CELL_SIZE);
+      ctx.strokeStyle = 'rgba(0,0,0,0.18)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(px + 0.5, py + 0.5, CELL_SIZE - 1, CELL_SIZE - 1);
     }
   }
 
@@ -174,34 +194,51 @@ export function renderGrid(
     ctx.fillRect(col * CELL_SIZE, 0, CELL_SIZE, fp.height * CELL_SIZE);
   }
 
-  // 3. Draw victim cell highlight
+  // 3. Draw victim cell highlight — pixel-art thick border
   if (victimCell) {
     const px = victimCell.x * CELL_SIZE;
     const py = victimCell.y * CELL_SIZE;
+    // Outer glow fill
+    ctx.fillStyle = `${palette.accent}44`;
+    ctx.fillRect(px, py, CELL_SIZE, CELL_SIZE);
+    // Chunky 4px pixel border
     ctx.strokeStyle = palette.accent;
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 4;
     ctx.strokeRect(px + 2, py + 2, CELL_SIZE - 4, CELL_SIZE - 4);
-    ctx.fillStyle = `${palette.accent}33`;
-    ctx.fillRect(px + 2, py + 2, CELL_SIZE - 4, CELL_SIZE - 4);
+    // Inner bright line
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(px + 5, py + 5, CELL_SIZE - 10, CELL_SIZE - 10);
   }
 
-  // 4. Draw placed suspects
+  // 4. Draw placed suspects — pixel-art square tokens
   for (const [suspectId, placement] of placements) {
     const suspect = puzzle.suspects.find(s => s.id === suspectId);
     if (!suspect) continue;
     const px = placement.x * CELL_SIZE;
     const py = placement.y * CELL_SIZE;
+    const margin = 6;
+    const tw = CELL_SIZE - margin * 2;
 
+    // Token background square
     ctx.fillStyle = suspectColor(suspectId);
-    ctx.beginPath();
-    ctx.arc(px + CELL_SIZE / 2, py + CELL_SIZE / 2, CELL_SIZE * 0.38, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.fillRect(px + margin, py + margin, tw, tw);
+    // 2px dark border for pixel crispness
+    ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(px + margin + 1, py + margin + 1, tw - 2, tw - 2);
+    // Inner highlight (top-left pixel)
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(px + margin + 2, py + margin + 2, tw - 4, tw - 4);
 
+    // Initial letter in pixel font
+    const fontSize = Math.min(14, Math.floor(tw * 0.45));
     ctx.fillStyle = '#ffffff';
-    ctx.font = `bold ${Math.floor(CELL_SIZE * 0.4)}px monospace`;
+    ctx.font = `${fontSize}px ${PIXEL_FONT}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(suspect.name.charAt(0).toUpperCase(), px + CELL_SIZE / 2, py + CELL_SIZE / 2);
+    ctx.fillText(suspect.name.charAt(0).toUpperCase(), px + CELL_SIZE / 2, py + CELL_SIZE / 2 + 1);
     ctx.textAlign = 'left';
     ctx.textBaseline = 'alphabetic';
   }

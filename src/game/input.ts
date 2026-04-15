@@ -42,32 +42,33 @@ const RADIAL_STYLES = `
 }
 .alibi-radial-menu {
   position: fixed;
-  background: #1a1a2e;
-  border: 2px solid #c0392b;
-  border-radius: 8px;
-  padding: 6px;
+  background: #0a0a12;
+  border: 3px solid #c0392b;
+  border-radius: 0;
+  padding: 4px;
   z-index: 200;
   min-width: 140px;
-  font-family: monospace;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  font-family: 'Press Start 2P', monospace;
+  box-shadow: 4px 4px 0 rgba(0,0,0,0.7);
 }
 .alibi-radial-item {
-  padding: 10px 16px;
+  padding: 10px 12px;
   cursor: pointer;
   color: #fff;
-  font-size: 14px;
-  border-radius: 4px;
+  font-size: 9px;
+  border-radius: 0;
   white-space: nowrap;
   min-height: 44px;  /* touch target minimum per WCAG */
   display: flex;
   align-items: center;
+  line-height: 1.6;
 }
 .alibi-radial-item:hover {
   background: #c0392b;
 }
 .alibi-radial-clear {
   color: #888;
-  border-top: 1px solid #333;
+  border-top: 2px solid #333;
   margin-top: 4px;
 }
 `;

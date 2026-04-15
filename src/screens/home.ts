@@ -13,59 +13,101 @@ const HOME_STYLES = `
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  background: #1a1a2e;
-  font-family: monospace;
+  background: #0a0a12;
+  font-family: 'Press Start 2P', monospace;
   color: #ffffff;
   gap: 0;
+  position: relative;
+  overflow: hidden;
 }
+/* Scanlines overlay for CRT feel */
+.alibi-home::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 3px,
+    rgba(0,0,0,0.04) 3px,
+    rgba(0,0,0,0.04) 4px
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+.alibi-home > * { position: relative; z-index: 2; }
 .alibi-home-title {
-  font-size: 4em;
-  font-weight: bold;
-  letter-spacing: 0.2em;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 3.5em;
   color: #c0392b;
-  text-shadow: 2px 2px 0 #8a0000, 4px 4px 0 rgba(0,0,0,0.3);
-  margin-bottom: 8px;
+  /* Hard pixel shadow — no blur */
+  text-shadow:
+    4px 0 0 #8a0000,
+    0 4px 0 #8a0000,
+    4px 4px 0 #8a0000,
+    8px 8px 0 rgba(0,0,0,0.5);
+  margin-bottom: 12px;
   text-transform: uppercase;
+  letter-spacing: 0.15em;
 }
 .alibi-home-subtitle {
-  font-size: 0.9em;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.55em;
   color: #888;
-  margin-bottom: 48px;
-  letter-spacing: 0.1em;
+  margin-bottom: 56px;
+  letter-spacing: 0.05em;
+  line-height: 1.8;
+  text-align: center;
+}
+.alibi-home-eyebrow {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.5em;
+  color: #c0392b;
+  letter-spacing: 0.2em;
+  margin-bottom: 16px;
+  text-transform: uppercase;
 }
 .alibi-home-buttons {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  width: 300px;
+  gap: 12px;
+  width: 340px;
 }
 .alibi-home-btn {
-  padding: 16px 24px;
-  font-family: monospace;
-  font-size: 1.1em;
-  font-weight: bold;
+  padding: 14px 20px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.6em;
   cursor: pointer;
+  /* Flat pixel border — no radius */
+  border-radius: 0;
   border: 2px solid;
-  border-radius: 6px;
   text-align: left;
-  transition: transform 0.1s, background 0.15s;
-  letter-spacing: 0.05em;
+  outline: none;
+  line-height: 1.6;
 }
-.alibi-home-btn:hover { transform: translateX(4px); }
+.alibi-home-btn:hover { filter: brightness(1.15); }
+.alibi-home-btn:active { transform: translate(2px,2px); }
 .alibi-home-btn.primary {
   background: #c0392b;
-  border-color: #e74c3c;
+  border-color: #ff5a47;
   color: #fff;
+  /* Pixel inset highlight */
+  box-shadow: inset 2px 2px 0 rgba(255,255,255,0.15), 3px 3px 0 #6b0000;
 }
-.alibi-home-btn.primary:hover { background: #e74c3c; }
 .alibi-home-btn.secondary {
-  background: #1e1e35;
-  border-color: #444;
-  color: #fff;
+  background: #1a1a2e;
+  border-color: #555;
+  color: #ccc;
+  box-shadow: inset 2px 2px 0 rgba(255,255,255,0.05), 3px 3px 0 #000;
 }
-.alibi-home-btn.secondary:hover { background: #2a2a50; border-color: #666; }
 .alibi-home-btn .btn-title { display: block; }
-.alibi-home-btn .btn-desc { display: block; font-size: 0.7em; color: rgba(255,255,255,0.6); margin-top: 3px; font-weight: normal; }
+.alibi-home-btn .btn-desc {
+  display: block;
+  font-size: 0.75em;
+  color: rgba(255,255,255,0.5);
+  margin-top: 6px;
+  font-family: 'Press Start 2P', monospace;
+}
 `;
 
 let homeStylesInjected = false;
@@ -92,13 +134,17 @@ export function mountHomeScreen(): void {
   screen.setAttribute('data-testid', 'screen-home');
   screen.className = 'alibi-home';
 
+  const eyebrow = document.createElement('div');
+  eyebrow.className = 'alibi-home-eyebrow';
+  eyebrow.textContent = '— A Mystery Awaits —';
+
   const title = document.createElement('div');
   title.className = 'alibi-home-title';
   title.textContent = 'ALIBI';
 
   const subtitle = document.createElement('div');
   subtitle.className = 'alibi-home-subtitle';
-  subtitle.textContent = 'A murder mystery deduction game';
+  subtitle.textContent = 'Murder Mystery\nDeduction';
 
   const buttons = document.createElement('div');
   buttons.className = 'alibi-home-buttons';
@@ -106,11 +152,11 @@ export function mountHomeScreen(): void {
   buttons.appendChild(makeBtn('btn-campaign', 'primary', '📁 Campaign',
     '12 escalating cases'));
   buttons.appendChild(makeBtn('btn-quickplay', 'secondary', '🎲 Quick Play',
-    'Pick theme and difficulty'));
+    'Pick theme + difficulty'));
   buttons.appendChild(makeBtn('btn-daily', 'secondary', '📅 Daily Case',
-    "Today's case · same worldwide"));
+    "Same worldwide · daily streak"));
 
-  screen.append(title, subtitle, buttons);
+  screen.append(eyebrow, title, subtitle, buttons);
   document.body.appendChild(screen);
 
   // Wire navigation
