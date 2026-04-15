@@ -1,17 +1,27 @@
 /**
- * ALIBI — main entry point (Stage 0: blank canvas)
- * Game engine, rendering, and modes are implemented in subsequent stages.
+ * ALIBI — main entry point
+ *
+ * Routes to game screen if URL params (theme/difficulty/seed) are present.
+ * Home screen, campaign, and daily modes are implemented in Stage 3 (items #16–17).
  */
 
-const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
-const ctx = canvas.getContext('2d');
-if (!ctx) throw new Error('Canvas 2D context not available');
+import { mountGameScreen } from './screens/game';
 
-// Blank canvas — game content rendered in Stage 2+
-ctx.fillStyle = '#1a1a2e';
-ctx.fillRect(0, 0, canvas.width, canvas.height);
+const params = new URLSearchParams(location.search);
 
-// DEV/TEST: expose puzzle reference (populated by generator in Stage 1)
-if (import.meta.env.DEV || import.meta.env.MODE === 'test') {
-  (window as Window & { __alibi_puzzle?: unknown }).__alibi_puzzle = undefined;
+if (params.has('theme') || params.has('difficulty') || params.has('seed')) {
+  // Direct puzzle URL — mount game screen immediately
+  mountGameScreen(document.body);
+} else {
+  // No routing params — show blank canvas placeholder (home screen in Stage 3)
+  const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Canvas 2D context not available');
+  ctx.fillStyle = '#1a1a2e';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // DEV/TEST: expose null puzzle reference until home screen is wired
+  if (import.meta.env.DEV || import.meta.env.MODE === 'test') {
+    (window as Window & { __alibi_puzzle?: unknown }).__alibi_puzzle = undefined;
+  }
 }
