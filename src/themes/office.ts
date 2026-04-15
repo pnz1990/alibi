@@ -108,12 +108,12 @@ const clueTemplates: ClueTemplates = {
 
   exactlyNRowsNorth: (s, o, n) => pickVariant([
     `${s} was exactly ${n} row${n > 1 ? 's' : ''} north of ${o}.`,
-    `${s}'s desk was ${n} row${n > 1 ? 's' : ''} ahead of ${o}'s.`,
+    `${s} was ${n} row${n > 1 ? 's' : ''} ahead of ${o}.`,
   ], s + o + n),
 
   exactlyNRowsSouth: (s, o, n) => pickVariant([
     `${s} was exactly ${n} row${n > 1 ? 's' : ''} south of ${o}.`,
-    `${s}'s desk was ${n} row${n > 1 ? 's' : ''} behind ${o}'s.`,
+    `${s} was ${n} row${n > 1 ? 's' : ''} behind ${o}.`,
   ], s + o + n),
 };
 
