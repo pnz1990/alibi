@@ -22,6 +22,8 @@ import {
 } from '../game/state';
 import type { GameState, GameSnapshot } from '../game/state';
 import { UndoStack } from '../game/undo';
+import { loadCampaign, saveCampaign } from '../storage/progress';
+import { completeCampaignCase } from '../modes/campaign';
 import { playSound, toggleMute } from '../game/sound';
 import { generateShareText, copyToClipboard } from '../game/share';
 import { savePuzzleState, loadPuzzleState, clearPuzzleState } from '../storage/progress';
