@@ -82,6 +82,18 @@ export function mountGameScreen(_root: HTMLElement): void {
   let state = createGameState(puzzle);
   const undoStack = new UndoStack();
 
+  // ── Timer ──────────────────────────────────────────────────────────────────
+  // Tracks actual wall-clock time since game start (or resume).
+  // restoredMs is the elapsed time restored from a save; startTime is when
+  // this session started; together they give the true total elapsed time.
+  let startTime = Date.now();
+  let restoredMs = 0;
+
+  /** Returns total elapsed ms: time from this session + any restored save time. */
+  function getElapsedMs(): number {
+    return (Date.now() - startTime) + restoredMs;
+  }
+
   // ── Render ─────────────────────────────────────────────────────────────────
   function savePlacements(k: string, s: GameState): void {
     const placements: Record<string, { x: number; y: number }> = {};
@@ -89,7 +101,7 @@ export function mountGameScreen(_root: HTMLElement): void {
     savePuzzleState({
       key: k,
       placements,
-      elapsedMs: s.elapsedMs,
+      elapsedMs: getElapsedMs(),
       savedAt: new Date().toISOString(),
       annotations: s.annotations,
     });
@@ -125,11 +137,12 @@ export function mountGameScreen(_root: HTMLElement): void {
       const next = checkWin(state);
       if (next.phase === 'guilty') {
         state = next;
+        const finalElapsedMs = getElapsedMs();
         clearPuzzleState(key);
         playSound('solve');
         redraw();
         showGuiltyScreen(document.body, puzzle);
-        addShareButton(puzzle, state);
+        addShareButton(puzzle, finalElapsedMs);
 
         // Campaign completion: persist progress and return to board after delay
         if (campaignSlot !== null && campaignCase !== null) {
@@ -138,7 +151,7 @@ export function mountGameScreen(_root: HTMLElement): void {
             const updated = completeCampaignCase(
               save,
               campaignCase,
-              state.elapsedMs,
+              finalElapsedMs,
               puzzle.killer.name,
             );
             saveCampaign(updated);
@@ -232,6 +245,9 @@ export function mountGameScreen(_root: HTMLElement): void {
       const snap: GameSnapshot = { placements: snapPlacements, annotations: snapAnnotations };
       state = restoreFromSnapshot(createGameState(puzzle), puzzle, snap);
       state = { ...state, elapsedMs: saved.elapsedMs };
+      // Restore timer: reset startTime so getElapsedMs() continues from save point
+      restoredMs = saved.elapsedMs;
+      startTime = Date.now();
       resizeAndRedraw();
       showNarrativeIntro(document.body, puzzle, () => {});
     }, () => {
@@ -372,7 +388,7 @@ function btn(testid: string, label: string): HTMLButtonElement {
   return b;
 }
 
-function addShareButton(puzzle: Puzzle, state: GameState): void {
+function addShareButton(puzzle: Puzzle, elapsedMs: number): void {
   const b = document.createElement('button');
   b.setAttribute('data-testid', 'btn-share');
   b.style.cssText =
@@ -381,7 +397,7 @@ function addShareButton(puzzle: Puzzle, state: GameState): void {
     'font-family:"Press Start 2P",monospace;font-size:11px;cursor:pointer;box-shadow:3px 3px 0 #6b0000;';
   b.textContent = '📋 Share Result';
   b.addEventListener('click', async () => {
-    const text = generateShareText(puzzle, state.elapsedMs);
+    const text = generateShareText(puzzle, elapsedMs);
     const ok = await copyToClipboard(text);
     b.textContent = ok ? '✓ Copied!' : '📋 Share Result';
     if (ok) setTimeout(() => { b.textContent = '📋 Share Result'; }, 2000);
