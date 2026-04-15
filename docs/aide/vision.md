@@ -108,10 +108,18 @@ Stats tracked per player: total cases solved, best time per theme/difficulty, cu
 
 6. **10 themes, 3 difficulty variants each = 30 distinct floor plans.** These are hand-crafted assets (the floor plan tile arrays and room cell lists). The generator fills them with suspects and clues procedurally.
 
+7. **Suspect names are alphabetical by position.** Suspect 0 is always an A-name, suspect 1 a B-name, suspect 2 a C-name, and so on. This makes the initial on the grid immediately identify the suspect. All theme `suspectNames` arrays must be ordered A→B→C→… (index 0 = A, index 1 = B, …). The generator assigns names by index, not by random selection from the pool.
+
+8. **Victim names always start with V.** All entries in a theme's `victimNames` array must begin with the letter V.
+
+9. **Pixel art visual aesthetic.** The game uses pixel/bitmap fonts for all text and crisp pixel rendering on the canvas (`image-rendering: pixelated`). Each theme's `colorPalette` is applied by the renderer. External CSS/font libraries are permitted to achieve this look.
+
+10. **Cell annotation system.** Players can annotate cells during deduction without committing to a placement: an **X** marks "nobody here"; one or more **?** marks indicate candidate suspects (multiple candidates per cell are allowed). Annotations are saved in `PuzzleState` and are included in the undo/redo stack.
+
 ---
 
 ## What "Done" Looks Like
 
-A player opens the URL. They see a home screen with three big buttons: Campaign, Quick Play, Daily Case. They start a new campaign, see a case file board with 12 cases. They play Case 1 (Easy, Coffee Shop). They see an illustrated floor plan with chairs and plants, five suspects with portrait cards, six natural-language clue cards. They place suspects, watch clues check off, click the last empty cell, see the GUILTY stamp name the killer. They return the next day and their Case 2 is waiting.
+A player opens the URL. They see a noir-styled home screen with three big buttons: Campaign, Quick Play, Daily Case. They start a new campaign, see a case file board with 12 cases. They play Case 1 (Easy, Coffee Shop). They see a pixel-art floor plan with chairs and plants, five suspect tokens labelled A through E, six natural-language clue cards in a notepad-style sidebar. They annotate cells with X and ? while deducing, confirm placements, watch clues check off, click the last empty cell, see the GUILTY stamp slam in with the killer's name. They return the next day and their Case 2 is waiting.
 
 That is the product.

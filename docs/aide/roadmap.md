@@ -159,3 +159,36 @@ The build order is strict: engine before renderer, renderer before modes, modes 
 - All 5 definition-of-done journeys ✅ in CI against production URL
 - GitHub release `v1.0.0` with changelog
 - `README.md` with live screenshot, play link, and brief rules explanation
+
+---
+
+## Stage 7: Gameplay Polish (post-v1.0)
+
+**Goal:** Address player-reported usability gaps. All items tracked as GitHub issues.
+
+### Deliverables (issues #41, #42, #43)
+
+#### #41 — Visual overhaul (pixel art aesthetic)
+- Pixel/bitmap font for **all** game text. External npm libraries permitted for this feature.
+- Crisp pixel grid borders; theme-specific palettes actually applied (currently hardcoded).
+- Suspect tokens look like retro character sprites.
+- GUILTY stamp has pixel-art animation (drop + shake).
+- Home screen: detective noir title feel, not a settings page.
+- Sidebar: physical case file / notepad look.
+- `image-rendering: pixelated` on `<canvas>` for sharpness.
+- All existing Playwright e2e tests must still pass.
+
+#### #42 — Alphabetical suspect names
+- `suspectNames[i]` must start with letter `i` (A=0, B=1, …, L=11).
+- Generator assigns name by position, not by PRNG — suspect 0 is always the A-name.
+- All 10 theme modules must be audited and fixed.
+- Add Vitest assertion for every registered theme.
+
+#### #43 — Cell annotation system
+- **X mark**: player can mark a cell as "nobody here" — shown as a red X.
+- **? candidates**: player can tag a cell with multiple "maybe" suspects (e.g. "A? B?").
+  - Multiple ? marks per cell allowed simultaneously.
+  - Placing a suspect confirmed elsewhere auto-clears their ? from all cells.
+- Undo/redo must include annotation changes.
+- Saved in `PuzzleState.annotations` (schema update required in `src/storage/schema.ts`).
+- New data-testids: `cell-annotation-x-{x}-{y}`, `cell-annotation-candidates-{x}-{y}`.

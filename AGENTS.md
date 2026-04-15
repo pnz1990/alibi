@@ -6,7 +6,7 @@ ALIBI is a browser murder mystery logic-deduction game with three play modes: Ca
 
 Inspired by the book Murdoku by Manuel Garand. Read `docs/aide/vision.md` before starting any implementation work.
 
-**Status**: Pre-release. Architecture and product design complete. Implementation not started.
+**Status**: v1.0.0 shipped. Active post-v1.0 work: visual overhaul (#41), alphabetical names (#42), cell annotations (#43).
 
 ---
 
@@ -314,7 +314,7 @@ interface Theme {
     medium: FloorPlan;
     hard: FloorPlan;
   };
-  suspectNames: SuspectName[];    // ≥ 12 names
+  suspectNames: SuspectName[];    // ≥ 12 names, MUST be ordered A→B→C…: index 0 starts with A, index 1 with B, etc.
   victimNames: string[];          // start with V, ≥ 6 names
   clueTemplates: ClueTemplates;   // natural-language string templates per clue type
   narrativeTemplates: {
@@ -578,7 +578,7 @@ Pass: all 10 themes load without JS errors. Report any that fail with screenshot
 3. Derive validCols: columns 0..W-1 with ≥1 placeable cell (floor/chair/sofa/bed).
 4. Derive validRows: rows 0..H-1 with ≥1 placeable cell.
 5. N = min(validCols.length, validRows.length).
-6. PRNG-select N suspect names from theme.suspectNames.
+6. Select N suspect names from theme.suspectNames by **index** (not random): suspect 0 = suspectNames[0] (A-name), suspect 1 = suspectNames[1] (B-name), … This guarantees alphabetical initials on the grid.
 7. PRNG-select 1 victim name from theme.victimNames.
 8. Place suspects: assign each of N suspects to a unique validRow AND unique validCol
    at a placeable cell within that (row,col) intersection.
@@ -640,6 +640,8 @@ Every PR touching render/game/modes/storage must be verified with BOTH:
 | Satisfied clue | class `clue-satisfied` |
 | Error clue | class `clue-error` |
 | Victim cell highlight | `victim-cell` |
+| Cell X annotation | `cell-annotation-x-{x}-{y}` |
+| Cell ? candidates container | `cell-annotation-candidates-{x}-{y}` |
 | GUILTY stamp | `guilty-stamp` |
 | Killer name on GUILTY | `guilty-killer-name` |
 | Clue gate message | `msg-clue-gate` |
@@ -682,6 +684,9 @@ Every PR touching render/game/modes/storage must be verified with BOTH:
 | Hardcoded solution, seed, or theme in engine code | QA |
 | localStorage write outside src/storage/progress.ts | QA |
 | Campaign seed derivation logic outside src/modes/campaign.ts | QA |
+| suspectNames array not alphabetically ordered (index 0 ≠ A-name) | QA |
+| Suspect name selected by PRNG instead of by index | QA |
+| Cell annotation state stored outside PuzzleState.annotations | QA |
 
 ---
 
