@@ -8,6 +8,7 @@ project:
   report_issue: 1                     # issue number for agent reports
   board_url: ""                       # https://github.com/users/pnz1990/projects/<N> (fill after board creation)
   pr_label: "alibi"                   # label applied to all feature PRs
+  job_family: FEE
 
 # ── Execution mode ────────────────────────────────────────────────────────────
 maqa:
