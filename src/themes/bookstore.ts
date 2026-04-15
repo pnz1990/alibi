@@ -7,6 +7,7 @@
  */
 
 import type { Theme, ClueTemplates } from './index';
+import { pickVariant } from './text-variants';
 import { FLOOR_PLANS } from './floor-plans';
 
 function ordinal(n: number): string {
@@ -16,24 +17,106 @@ function ordinal(n: number): string {
 }
 
 const clueTemplates: ClueTemplates = {
-  inRoom:             (s, r) => `${s} was browsing in the ${r}.`,
-  notInRoom:          (s, r) => `${s} was not in the ${r}.`,
-  inSameRoom:         (s, o) => `${s} was in the same section as ${o}.`,
-  inDifferentRoom:    (s, o) => `${s} and ${o} were in different sections.`,
-  inColumn:           (s, c) => `${s} was in the ${ordinal(c)} column.`,
-  inRow:              (s, r) => `${s} was in the ${ordinal(r)} row.`,
-  besideSuspect:      (s, o) => `${s} was standing right next to ${o}.`,
-  notBesideSuspect:   (s, o) => `${s} was not beside ${o}.`,
-  besideObject:       (s, obj) => `${s} was standing near ${obj}.`,
-  notBesideObject:    (s, obj) => `${s} was not near ${obj}.`,
-  onSeatTile:         (s, t) =>
-    t === 'chair' ? `${s} was sitting in a reading chair.`
-    : `${s} was sitting on the ${t}.`,
-  notOnSeatTile:      (s) => `${s} was not sitting down.`,
-  northOf:            (s, o) => `${s} was north of ${o}.`,
-  southOf:            (s, o) => `${s} was south of ${o}.`,
-  exactlyNRowsNorth:  (s, o, n) => `${s} was exactly ${n} row${n > 1 ? 's' : ''} north of ${o}.`,
-  exactlyNRowsSouth:  (s, o, n) => `${s} was exactly ${n} row${n > 1 ? 's' : ''} south of ${o}.`,
+  inRoom: (s, r) => pickVariant([
+    `${s} was browsing in the ${r}.`,
+    `${s} was found in the ${r} section.`,
+    `The clerk placed ${s} in the ${r}.`,
+    `${s} spent time in the ${r}.`,
+  ], s + r),
+
+  notInRoom: (s, r) => pickVariant([
+    `${s} was not in the ${r}.`,
+    `${s} never set foot in the ${r} section.`,
+    `The clerk confirmed ${s} wasn't in the ${r}.`,
+    `${s} was nowhere near the ${r}.`,
+  ], s + r),
+
+  inSameRoom: (s, o) => pickVariant([
+    `${s} was in the same section as ${o}.`,
+    `A customer spotted ${s} browsing alongside ${o}.`,
+    `${s} and ${o} were seen in the same aisle.`,
+  ], s + o),
+
+  inDifferentRoom: (s, o) => pickVariant([
+    `${s} and ${o} were in different sections.`,
+    `${s} was nowhere near ${o}'s section.`,
+    `The clerk noted ${s} and ${o} were apart.`,
+    `${s} and ${o} didn't share a section.`,
+  ], s + o),
+
+  inColumn: (s, c) => pickVariant([
+    `${s} was in the ${ordinal(c)} column.`,
+    `${s} stood in column ${c}.`,
+    `${s}'s position was the ${ordinal(c)} column from the left.`,
+  ], s + c),
+
+  inRow: (s, r) => pickVariant([
+    `${s} was in the ${ordinal(r)} row.`,
+    `${s} was browsing along row ${r}.`,
+    `${s}'s position was on the ${ordinal(r)} row.`,
+  ], s + r),
+
+  besideSuspect: (s, o) => pickVariant([
+    `${s} was standing right next to ${o}.`,
+    `${s} was browsing just beside ${o}.`,
+    `${s} and ${o} were in adjacent spots.`,
+    `A witness saw ${s} shoulder-to-shoulder with ${o}.`,
+  ], s + o),
+
+  notBesideSuspect: (s, o) => pickVariant([
+    `${s} was not beside ${o}.`,
+    `${s} and ${o} were not in the same aisle.`,
+    `${s} kept well away from ${o}.`,
+  ], s + o),
+
+  besideObject: (s, obj) => pickVariant([
+    `${s} was standing near ${obj}.`,
+    `${s} was right beside ${obj}.`,
+    `${s} was seen next to ${obj}.`,
+  ], s + obj),
+
+  notBesideObject: (s, obj) => pickVariant([
+    `${s} was not near ${obj}.`,
+    `${s} was not beside ${obj}.`,
+    `${s} kept away from ${obj}.`,
+  ], s + obj),
+
+  onSeatTile: (s, t) =>
+    t === 'chair'
+      ? pickVariant([
+          `${s} was sitting in a reading chair.`,
+          `${s} had settled into one of the chairs.`,
+          `${s} was seated at the time.`,
+        ], s)
+      : `${s} was sitting on the ${t}.`,
+
+  notOnSeatTile: (s) => pickVariant([
+    `${s} was not sitting down.`,
+    `${s} was browsing on their feet.`,
+    `${s} remained standing.`,
+  ], s),
+
+  northOf: (s, o) => pickVariant([
+    `${s} was north of ${o}.`,
+    `${s} was in the front section, closer to the door than ${o}.`,
+    `${s} was ahead of ${o} in the store.`,
+  ], s + o),
+
+  southOf: (s, o) => pickVariant([
+    `${s} was south of ${o}.`,
+    `${s} was in the back of the store, behind ${o}.`,
+    `${s} was further from the entrance than ${o}.`,
+  ], s + o),
+
+  exactlyNRowsNorth: (s, o, n) => pickVariant([
+    `${s} was exactly ${n} row${n > 1 ? 's' : ''} north of ${o}.`,
+    `${s} stood ${n} row${n > 1 ? 's' : ''} ahead of ${o}.`,
+  ], s + o + n),
+
+  exactlyNRowsSouth: (s, o, n) => pickVariant([
+    `${s} was exactly ${n} row${n > 1 ? 's' : ''} south of ${o}.`,
+    `${s} stood ${n} row${n > 1 ? 's' : ''} behind ${o}.`,
+  ], s + o + n),
 };
 
 export const BOOKSTORE_THEME: Theme = {

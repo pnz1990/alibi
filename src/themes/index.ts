@@ -17,7 +17,6 @@ import { HOSPITAL_THEME } from './hospital';
 import { CARNIVAL_THEME } from './carnival';
 
 export type { ClueType };
-
 export interface ClueTemplates {
   inRoom:             (suspectName: string, roomName: string) => string;
   notInRoom:          (suspectName: string, roomName: string) => string;

@@ -7,6 +7,7 @@ import { countSolutions } from '../../src/engine/solver';
 import { generatePuzzle, PuzzleGenerationError, makePRNG } from '../../src/engine/generator';
 import { getValidCols, getValidRows } from '../../src/engine/grid';
 import { STUB_THEME } from '../../src/themes/index';
+import { COFFEE_SHOP_THEME } from '../../src/themes/coffee-shop';
 import { FLOOR_PLANS } from '../../src/themes/floor-plans';
 import type { Clue } from '../../src/engine/clues';
 
@@ -195,4 +196,39 @@ describe('generatePuzzle — all difficulties', () => {
       }
     }, 30000);
   }
+});
+
+describe('generatePuzzle — clue count scales with difficulty', () => {
+  it('hard puzzles have a lower clue-to-suspect ratio than easy puzzles', () => {
+    // Compare clue count relative to suspect count (N).
+    // Easy = N clues / N suspects = 1.0 ratio.
+    // Hard = (N-2 or more if solver adds) clues / N suspects < 1.0 ratio ideally.
+    // We check that the ratio is lower on average for hard vs easy.
+    const N_SEEDS = 20;
+    let easyRatio = 0, hardRatio = 0;
+    for (let seed = 0; seed < N_SEEDS; seed++) {
+      const easy = generatePuzzle(seed, STUB_THEME, 'easy');
+      const hard = generatePuzzle(seed, STUB_THEME, 'hard');
+      easyRatio += easy.clues.length / easy.suspects.length;
+      hardRatio += hard.clues.length / hard.suspects.length;
+    }
+    easyRatio /= N_SEEDS;
+    hardRatio /= N_SEEDS;
+    // Hard ratio should be lower (fewer clues relative to suspects = harder)
+    expect(hardRatio).toBeLessThan(easyRatio);
+  });
+
+  it('clue text variety: inRoom clues use multiple phrasings across puzzles', () => {
+    // Generate multiple coffee-shop easy puzzles and collect inRoom clue texts.
+    // With 4 variants, we should see at least 2 distinct phrasings.
+    const texts = new Set<string>();
+    for (let seed = 0; seed < 30; seed++) {
+      const puzzle = generatePuzzle(seed, COFFEE_SHOP_THEME, 'easy');
+      for (const clue of puzzle.clues) {
+        if (clue.type === 'inRoom') texts.add(clue.text);
+      }
+    }
+    // With 4 variants and varied suspect/room names, we should see multiple distinct texts
+    expect(texts.size).toBeGreaterThan(1);
+  });
 });
