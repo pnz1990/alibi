@@ -56,6 +56,10 @@ export function mountGameScreen(_root: HTMLElement): void {
   const { width, height } = getCanvasSize(puzzle);
   canvas.width  = width;
   canvas.height = height;
+  // Mobile: scale canvas to fit viewport width
+  canvas.style.maxWidth  = '100%';
+  canvas.style.maxHeight = '100vh';
+  canvas.style.objectFit = 'contain';
   canvasWrapper.appendChild(canvas);
 
   let state = createGameState(puzzle);
