@@ -244,7 +244,6 @@ export function mountGameScreen(_root: HTMLElement): void {
       const snapAnnotations = saved.annotations ?? { x: [], candidates: {} };
       const snap: GameSnapshot = { placements: snapPlacements, annotations: snapAnnotations };
       state = restoreFromSnapshot(createGameState(puzzle), puzzle, snap);
-      state = { ...state, elapsedMs: saved.elapsedMs };
       // Restore timer: reset startTime so getElapsedMs() continues from save point
       restoredMs = saved.elapsedMs;
       startTime = Date.now();

@@ -21,7 +21,6 @@ export interface GameState {
   victimVisible:  boolean;
   victimCell:     { x: number; y: number } | null;
   phase:          GamePhase;
-  elapsedMs:      number;
 }
 
 export function emptyAnnotations(): CellAnnotations {
@@ -41,7 +40,6 @@ export function createGameState(_puzzle: Puzzle): GameState {
     victimVisible:  false,
     victimCell:     null,
     phase:          'playing',
-    elapsedMs:      0,
   };
 }
 
