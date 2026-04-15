@@ -27,11 +27,32 @@ export let CELL_SIZE = 64;
 /**
  * Updates CELL_SIZE to fit the available viewport.
  * Call on init and on window resize.
+ *
+ * Pass `availW` and `availH` (the actual panel pixel dimensions) when available
+ * so the cell size is computed from measured layout, not estimated ratios.
+ *
+ * Layout modes:
+ *  - Desktop (≥700px wide): canvas left, sidebar right. Defaults to 62% of vw.
+ *  - Mobile (<700px wide): canvas stacked on top, full width.
  */
-export function updateCellSize(floorWidth: number, floorHeight: number): number {
-  const maxH = (window.innerHeight - 80) / floorHeight;
-  const maxW = (window.innerWidth * 0.62) / floorWidth;
-  CELL_SIZE = Math.max(56, Math.min(96, Math.floor(Math.min(maxH, maxW))));
+export function updateCellSize(
+  floorWidth: number,
+  floorHeight: number,
+  availW?: number,
+  availH?: number,
+): number {
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const isMobile = vw < 700;
+
+  const panelW = availW ?? (isMobile ? vw - 16 : vw * 0.62);
+  const panelH = availH ?? (isMobile ? vh * 0.55 : vh - 80);
+
+  const maxW = panelW / floorWidth;
+  const maxH = panelH / floorHeight;
+  const minSize = isMobile ? 28 : 48;
+  const maxSize = isMobile ? 72 : 96;
+  CELL_SIZE = Math.max(minSize, Math.min(maxSize, Math.floor(Math.min(maxW, maxH))));
   return CELL_SIZE;
 }
 

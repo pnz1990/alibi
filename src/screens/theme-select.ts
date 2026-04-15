@@ -94,6 +94,15 @@ const THEME_SELECT_STYLES = `
 }
 .alibi-play-btn:hover { background: #e74c3c; }
 .alibi-play-btn:disabled { background: #444; cursor: default; opacity: 0.5; }
+@media (max-width: 699px) {
+  .alibi-theme-select { padding: 16px 12px; }
+  .alibi-difficulty-row { flex-wrap: wrap; gap: 8px; }
+  .alibi-diff-btn { padding: 10px 14px; font-size: 12px; min-height: 40px; }
+  .alibi-theme-grid { gap: 8px; }
+  .alibi-theme-card { padding: 12px; font-size: 13px; }
+  .alibi-play-btn { width: 100%; padding: 14px; font-size: 1em; }
+  .alibi-theme-select-header h1 { font-size: 1.2em; }
+}
 `;
 
 const THEME_ICONS: Record<string, string> = {

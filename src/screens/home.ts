@@ -73,6 +73,7 @@ const HOME_STYLES = `
   flex-direction: column;
   gap: 12px;
   width: 340px;
+  max-width: calc(100vw - 32px);
 }
 .alibi-home-btn {
   padding: 14px 20px;
@@ -108,6 +109,27 @@ const HOME_STYLES = `
   color: rgba(255,255,255,0.5);
   margin-top: 6px;
   font-family: 'Press Start 2P', monospace;
+}
+
+/* ── Mobile overrides ───────────────────────────────────────────────── */
+@media (max-width: 699px) {
+  .alibi-home-title {
+    font-size: 2.2em;
+    text-shadow:
+      3px 0 0 #8a0000,
+      0 3px 0 #8a0000,
+      3px 3px 0 #8a0000,
+      5px 5px 0 rgba(0,0,0,0.5);
+    margin-bottom: 8px;
+  }
+  .alibi-home-subtitle {
+    font-size: 0.45em;
+    margin-bottom: 32px;
+  }
+  .alibi-home-btn {
+    padding: 14px 16px;
+    font-size: 0.55em;
+  }
 }
 `;
 

@@ -154,6 +154,13 @@ function openWheel(
   const R = 52;   // arc center radius (px from center)
   const r = 22;   // arc slice radius (half-width of each slice)
 
+  // Clamp wheel center to stay fully within viewport
+  const halfSize = R + r + 4;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const clampedX = Math.max(halfSize, Math.min(vw - halfSize, screenX));
+  const clampedY = Math.max(halfSize, Math.min(vh - halfSize, screenY));
+
   // Backdrop — closes wheel on click outside
   const backdrop = document.createElement('div');
   backdrop.className = 'alibi-wheel-backdrop';
@@ -166,8 +173,8 @@ function openWheel(
   const wheel = document.createElement('div');
   wheel.className = 'alibi-wheel';
   wheel.setAttribute('data-testid', 'radial-menu');
-  wheel.style.left = `${screenX}px`;
-  wheel.style.top  = `${screenY}px`;
+  wheel.style.left = `${clampedX}px`;
+  wheel.style.top  = `${clampedY}px`;
   wheel.style.transform = 'translate(-50%, -50%)';
   wheel.style.pointerEvents = 'all';
 
@@ -347,6 +354,7 @@ export function attachInputHandlers(
 
       if (isPlaceable(tile)) {
         cell.classList.add('alibi-cell-overlay', 'placeable');
+        cell.style.touchAction = 'manipulation'; // no 300ms delay on mobile
         cell.addEventListener('click', (e) => {
           e.stopPropagation();
           // Calculate screen center of the cell
@@ -377,7 +385,7 @@ export function attachInputHandlers(
       victimDiv.className = 'alibi-cell-overlay victim-highlight';
       victimDiv.style.cssText =
         `position:absolute;left:${x * CELL_SIZE}px;top:${y * CELL_SIZE}px;` +
-        `width:${CELL_SIZE}px;height:${CELL_SIZE}px;pointer-events:all;`;
+        `width:${CELL_SIZE}px;height:${CELL_SIZE}px;pointer-events:all;touch-action:manipulation;`;
       victimDiv.addEventListener('click', (e) => {
         e.stopPropagation();
         callbacks.onVictimClick();

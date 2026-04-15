@@ -77,7 +77,12 @@ export function mountGameScreen(_root: HTMLElement): void {
   canvas.style.imageRendering = 'pixelated';
 
   function resizeAndRedraw(): void {
-    updateCellSize(puzzle.floorPlan.width, puzzle.floorPlan.height);
+    // Use the grid panel's actual rendered size for accurate cell sizing
+    const panel = screen.querySelector('.alibi-grid-panel') as HTMLElement | null;
+    const panelRect = panel?.getBoundingClientRect();
+    const availW = panelRect && panelRect.width  > 16 ? panelRect.width  - 16 : undefined;
+    const availH = panelRect && panelRect.height > 16 ? panelRect.height - 16 : undefined;
+    updateCellSize(puzzle.floorPlan.width, puzzle.floorPlan.height, availW, availH);
     const { width, height } = getCanvasSize(puzzle);
     canvas.width  = width;
     canvas.height = height;
@@ -289,7 +294,9 @@ export function mountGameScreen(_root: HTMLElement): void {
     showNarrativeIntro(document.body, puzzle, () => {});
   }
 
-  resizeAndRedraw();
+  // Initial render — defer one frame so the DOM has been laid out and
+  // getBoundingClientRect returns real dimensions (critical on mobile).
+  requestAnimationFrame(() => resizeAndRedraw());
 
   // Responsive resize
   const resizeObserver = new ResizeObserver(() => resizeAndRedraw());
@@ -301,10 +308,12 @@ export function mountGameScreen(_root: HTMLElement): void {
 // ─────────────────────────────────────────────
 
 const SCREEN_STYLES = `
+/* ── Desktop: horizontal side-by-side layout ───────────────────────── */
 .alibi-game-screen {
   display: flex;
+  flex-direction: row;
   align-items: stretch;
-  gap: 0;
+  width: 100%;
   height: 100vh;
   overflow: hidden;
   background: #0d0d1a;
@@ -317,11 +326,13 @@ const SCREEN_STYLES = `
   );
 }
 .alibi-grid-panel {
-  flex-shrink: 0;
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 16px;
+  overflow: hidden;
   position: relative;
 }
 .alibi-canvas-wrapper {
@@ -331,9 +342,16 @@ const SCREEN_STYLES = `
   box-shadow: 4px 4px 0 rgba(0,0,0,0.6), 0 0 32px rgba(139,105,20,0.2);
   background: #1a120a;
 }
+.alibi-right-pane {
+  display: flex;
+  flex-direction: column;
+  width: 280px;
+  flex-shrink: 0;
+  height: 100vh;
+}
 .alibi-sidebar-container {
   flex: 1;
-  height: 100vh;
+  min-height: 0;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -363,6 +381,48 @@ const SCREEN_STYLES = `
 }
 .alibi-toolbar button:hover { background: #2a2a50; color: #fff; }
 .alibi-toolbar button:active { transform: translate(1px,1px); box-shadow: 1px 1px 0 #000; }
+
+/* ── Mobile (<700px): vertical stacked layout ──────────────────────── */
+@media (max-width: 699px) {
+  .alibi-game-screen {
+    flex-direction: column;
+    height: 100dvh;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  .alibi-grid-panel {
+    flex: 0 0 auto;
+    width: 100%;
+    padding: 8px;
+    align-items: flex-start;
+    justify-content: center;
+  }
+  .alibi-right-pane {
+    width: 100%;
+    height: auto;
+    flex-shrink: 0;
+  }
+  .alibi-sidebar-container {
+    min-width: 0;
+    max-width: none;
+    width: 100%;
+    height: auto;
+    border-left: none;
+    border-top: 2px solid #8b6914;
+    box-shadow: 0 -4px 16px rgba(0,0,0,0.4);
+    -webkit-overflow-scrolling: touch;
+  }
+  .alibi-toolbar {
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 6px 8px;
+  }
+  .alibi-toolbar button {
+    padding: 8px 12px;
+    font-size: 9px;
+    min-height: 44px;
+  }
+}
 `;
 
 let screenStylesInjected = false;
@@ -380,19 +440,18 @@ function buildScreen(): HTMLElement {
   screen.setAttribute('data-testid', 'screen-game');
   screen.className = 'alibi-game-screen';
 
-  // Grid panel (left side — canvas centered within padding)
+  // Grid panel — layout controlled by .alibi-grid-panel CSS class
   const gridPanel = document.createElement('div');
   gridPanel.className = 'alibi-grid-panel';
-  gridPanel.style.cssText = 'flex:1;display:flex;align-items:center;justify-content:center;padding:16px;overflow:hidden;';
 
   const canvasWrapper = document.createElement('div');
   canvasWrapper.className = 'alibi-canvas-wrapper';
 
   gridPanel.appendChild(canvasWrapper);
 
-  // Right pane: toolbar + sidebar
+  // Right pane: toolbar + sidebar — layout controlled by .alibi-right-pane CSS class
   const rightPane = document.createElement('div');
-  rightPane.style.cssText = 'display:flex;flex-direction:column;height:100vh;width:280px;flex-shrink:0;';
+  rightPane.className = 'alibi-right-pane';
 
   const toolbar = document.createElement('div');
   toolbar.className = 'alibi-toolbar';

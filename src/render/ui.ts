@@ -196,6 +196,39 @@ const SIDEBAR_STYLES = `
   0%, 100% { background: transparent; }
   50%       { background: rgba(192,57,43,0.2); }
 }
+
+/* ── Mobile overrides ───────────────────────────────────────────────── */
+@media (max-width: 699px) {
+  .alibi-sidebar {
+    min-width: 0;
+    max-width: none;
+    width: 100%;
+    border-left: none;
+  }
+  .alibi-sidebar-label {
+    font-size: 8px;
+  }
+  .alibi-room-entry {
+    font-size: 8px;
+  }
+  .alibi-victim-label {
+    font-size: 8px;
+  }
+  .alibi-suspect-name {
+    font-size: 9px;
+  }
+  .alibi-suspect-status {
+    font-size: 7px;
+  }
+  .alibi-clue-card {
+    font-size: 13px;
+    padding: 8px 12px;
+  }
+  /* Bigger tap targets for suspect cards */
+  .alibi-suspect-card {
+    padding: 8px 10px;
+  }
+}
 `;
 
 // Room tint colors matching canvas.ts (must stay in sync)

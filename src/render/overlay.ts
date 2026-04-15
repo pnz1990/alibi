@@ -97,6 +97,27 @@ const OVERLAY_STYLES = `
   letter-spacing: 0.05em;
   line-height: 1.6;
 }
+@media (max-width: 699px) {
+  .alibi-modal {
+    padding: 20px 16px;
+  }
+  .alibi-modal h2 {
+    font-size: 0.7em;
+    margin-bottom: 14px;
+  }
+  .alibi-modal p {
+    font-size: 0.45em;
+  }
+  .alibi-modal button {
+    padding: 10px 18px;
+    font-size: 0.55em;
+    min-height: 44px;
+  }
+  .alibi-guilty-stamp {
+    font-size: 1.2em;
+    padding: 4px 10px;
+  }
+}
 `;
 
 let overlayStylesInjected = false;

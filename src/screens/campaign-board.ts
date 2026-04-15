@@ -97,6 +97,13 @@ const BOARD_STYLES = `
   color: #7ec87e;
   margin-top: 6px;
 }
+@media (max-width: 699px) {
+  .alibi-campaign-board { padding: 16px 12px; }
+  .alibi-case-grid { gap: 10px; }
+  .alibi-campaign-header h1 { font-size: 1.3em; }
+  .alibi-case-card { padding: 12px; }
+  .alibi-slot-card { padding: 14px 12px; }
+}
 .alibi-slot-picker {
   max-width: 600px;
 }
