@@ -55,21 +55,21 @@ const clueTemplates: ClueTemplates = {
   ], s + r),
 
   besideSuspect: (s, o) => pickVariant([
-    `${s} was seated right next to ${o}.`,
-    `${s} and ${o} were at adjacent tables.`,
+    `${s} was right next to ${o}.`,
+    `${s} and ${o} were side by side.`,
     `${s} was barely an arm's length from ${o}.`,
     `A server noted ${s} right beside ${o}.`,
   ], s + o),
 
   notBesideSuspect: (s, o) => pickVariant([
     `${s} was not beside ${o}.`,
-    `${s} and ${o} were not at adjacent tables.`,
-    `${s} was seated well away from ${o}.`,
+    `${s} and ${o} were not in adjacent positions.`,
+    `${s} was not close to ${o}.`,
   ], s + o),
 
   besideObject: (s, obj) => pickVariant([
     `${s} was beside ${obj}.`,
-    `${s} was seated next to ${obj}.`,
+    `${s} was right next to ${obj}.`,
     `The floor plan shows ${s} right by ${obj}.`,
   ], s + obj),
 

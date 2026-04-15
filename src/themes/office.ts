@@ -44,54 +44,54 @@ const clueTemplates: ClueTemplates = {
 
   inColumn: (s, c) => pickVariant([
     `${s} was in the ${ordinal(c)} column.`,
-    `${s}'s desk was in column ${c}.`,
-    `${s} worked in the ${ordinal(c)} column.`,
+    `${s}'s position was column ${c}.`,
+    `${s} was in the ${ordinal(c)} column.`,
   ], s + c),
 
   inRow: (s, r) => pickVariant([
     `${s} was in the ${ordinal(r)} row.`,
-    `${s}'s workstation was on row ${r}.`,
+    `${s} was on row ${r}.`,
     `${s} was on the ${ordinal(r)} row of the floor plan.`,
   ], s + r),
 
   besideSuspect: (s, o) => pickVariant([
-    `${s} was working right next to ${o}.`,
-    `${s}'s desk was adjacent to ${o}'s.`,
-    `${s} and ${o} sat just one desk apart.`,
+    `${s} was right next to ${o}.`,
+    `${s} and ${o} were in adjacent positions.`,
+    `${s} was barely a step from ${o}.`,
     `A colleague noticed ${s} right beside ${o}.`,
   ], s + o),
 
   notBesideSuspect: (s, o) => pickVariant([
     `${s} was not beside ${o}.`,
-    `${s} and ${o} were not at adjacent desks.`,
-    `${s} was not close to ${o}'s workstation.`,
+    `${s} and ${o} were not in adjacent positions.`,
+    `${s} was not close to ${o}.`,
   ], s + o),
 
   besideObject: (s, obj) => pickVariant([
     `${s} was beside ${obj}.`,
-    `${s}'s desk was right next to ${obj}.`,
-    `${s} worked near ${obj}.`,
+    `${s} was right next to ${obj}.`,
+    `${s} was near ${obj}.`,
   ], s + obj),
 
   notBesideObject: (s, obj) => pickVariant([
     `${s} was not near ${obj}.`,
-    `${s}'s workspace was away from ${obj}.`,
     `${s} was not beside ${obj}.`,
+    `${s} kept away from ${obj}.`,
   ], s + obj),
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onSeatTile: (s, _t) => pickVariant([
-    `${s} was sitting at their desk.`,
-    `${s} was at their workstation at the time.`,
-    `${s} was seated and working.`,
-    `${s} had not left their desk.`,
+    `${s} was sitting down.`,
+    `${s} was seated at the time.`,
+    `${s} had taken a seat.`,
+    `${s} was not on their feet.`,
   ], s),
 
   notOnSeatTile: (s) => pickVariant([
     `${s} was not sitting down.`,
-    `${s} was away from their desk.`,
+    `${s} was on their feet.`,
     `${s} was standing or moving around.`,
-    `${s} had left their workstation.`,
+    `${s} was not seated.`,
   ], s),
 
   northOf: (s, o) => pickVariant([
