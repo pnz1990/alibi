@@ -16,6 +16,7 @@
 import type { Puzzle } from '../engine/generator';
 import type { SuspectPlacement } from '../engine/logic';
 import type { Theme } from '../themes/index';
+import type { CellAnnotations } from '../storage/schema';
 import { getSpatialMask } from '../engine/logic';
 import { getSpriteForObject } from './sprites';
 
@@ -105,6 +106,7 @@ const SEAT_TILES = new Set(['C', 'S', 'B']);
  * @param theme        The active theme (palette, spriteMap)
  * @param placements   Current suspect placements (suspectId → {x,y})
  * @param victimCell   Victim cell position, or null if not yet determined
+ * @param annotations  Cell annotation state (X marks, ? candidates)
  */
 export function renderGrid(
   ctx: CanvasRenderingContext2D,
@@ -112,6 +114,7 @@ export function renderGrid(
   theme: Theme,
   placements: ReadonlyMap<string, SuspectPlacement>,
   victimCell: { x: number; y: number } | null,
+  annotations?: CellAnnotations,
 ): void {
   const fp = puzzle.floorPlan;
   const palette = theme.colorPalette;
@@ -241,6 +244,51 @@ export function renderGrid(
     ctx.fillText(suspect.name.charAt(0).toUpperCase(), px + CELL_SIZE / 2, py + CELL_SIZE / 2 + 1);
     ctx.textAlign = 'left';
     ctx.textBaseline = 'alphabetic';
+  }
+
+  // 5. Draw cell annotations (X marks and ? candidates)
+  if (annotations) {
+    // X marks
+    for (const [ax, ay] of annotations.x) {
+      const px = ax * CELL_SIZE;
+      const py = ay * CELL_SIZE;
+      // Semi-transparent red overlay
+      ctx.fillStyle = 'rgba(192, 57, 43, 0.15)';
+      ctx.fillRect(px, py, CELL_SIZE, CELL_SIZE);
+      // Bold X in pixel style — two diagonal lines with extra thickness
+      ctx.strokeStyle = '#c0392b';
+      ctx.lineWidth = 4;
+      const margin = 10;
+      ctx.beginPath();
+      ctx.moveTo(px + margin, py + margin);
+      ctx.lineTo(px + CELL_SIZE - margin, py + CELL_SIZE - margin);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(px + CELL_SIZE - margin, py + margin);
+      ctx.lineTo(px + margin, py + CELL_SIZE - margin);
+      ctx.stroke();
+    }
+
+    // ? candidate marks
+    for (const [cellKey, candidateIds] of Object.entries(annotations.candidates)) {
+      if (!candidateIds.length) continue;
+      const [ax, ay] = cellKey.split(',').map(Number);
+      const px = ax * CELL_SIZE;
+      const py = ay * CELL_SIZE;
+
+      // Draw candidate initials at bottom of cell
+      const label = candidateIds
+        .map(id => puzzle.suspects.find(s => s.id === id)?.name.charAt(0).toUpperCase() ?? '?')
+        .join(' ') + '?';
+
+      ctx.font = `5px ${PIXEL_FONT}`;
+      ctx.fillStyle = 'rgba(100, 100, 255, 0.85)';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(label, px + CELL_SIZE / 2, py + CELL_SIZE - 3);
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+    }
   }
 }
 

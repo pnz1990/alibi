@@ -71,6 +71,11 @@ const RADIAL_STYLES = `
   border-top: 2px solid #333;
   margin-top: 4px;
 }
+.alibi-radial-annotation {
+  color: #c0c0ff;
+  font-size: 7px;
+}
+.alibi-radial-annotation:hover { background: #3a3a60; }
 `;
 
 let inputStylesInjected = false;
@@ -83,9 +88,12 @@ function injectInputStyles(): void {
 }
 
 export interface InputCallbacks {
-  onPlace:       (suspectId: string, x: number, y: number) => void;
-  onRemove:      (suspectId: string) => void;
-  onVictimClick: () => void;
+  onPlace:            (suspectId: string, x: number, y: number) => void;
+  onRemove:           (suspectId: string) => void;
+  onVictimClick:      () => void;
+  onToggleX:          (x: number, y: number) => void;
+  onAddCandidate:     (suspectId: string, x: number, y: number) => void;
+  onRemoveCandidate:  (suspectId: string, x: number, y: number) => void;
 }
 
 /**
@@ -187,6 +195,34 @@ export function attachInputHandlers(
         d.style.pointerEvents = (isPlaceable(tile) && (!blocked || hasSuspect)) ? 'all' : 'none';
       }
     }
+
+    // Remove old annotation DOM overlays
+    overlayDiv.querySelectorAll('[data-annotation]').forEach(el => el.remove());
+
+    // Add X annotation DOM overlays (for Playwright testid access)
+    for (const [ax, ay] of state.annotations.x) {
+      const xEl = document.createElement('div');
+      xEl.setAttribute('data-testid', `cell-annotation-x-${ax}-${ay}`);
+      xEl.setAttribute('data-annotation', 'x');
+      xEl.style.cssText =
+        `position:absolute;left:${ax * CELL_SIZE}px;top:${ay * CELL_SIZE}px;` +
+        `width:${CELL_SIZE}px;height:${CELL_SIZE}px;pointer-events:none;`;
+      overlayDiv.appendChild(xEl);
+    }
+
+    // Add ? candidate DOM overlays
+    for (const [cellKey, candidateIds] of Object.entries(state.annotations.candidates)) {
+      if (!candidateIds.length) continue;
+      const [ax, ay] = cellKey.split(',').map(Number);
+      const qEl = document.createElement('div');
+      qEl.setAttribute('data-testid', `cell-annotation-candidates-${ax}-${ay}`);
+      qEl.setAttribute('data-annotation', 'candidates');
+      qEl.setAttribute('data-candidates', candidateIds.join(','));
+      qEl.style.cssText =
+        `position:absolute;left:${ax * CELL_SIZE}px;top:${ay * CELL_SIZE}px;` +
+        `width:${CELL_SIZE}px;height:${CELL_SIZE}px;pointer-events:none;`;
+      overlayDiv.appendChild(qEl);
+    }
   }
 
   function detach(): void {
@@ -240,7 +276,7 @@ function handleCellClick(
     const item = document.createElement('div');
     item.className = 'alibi-radial-item';
     item.setAttribute('data-testid', `suspect-option-${suspect.id}`);
-    item.textContent = suspect.name;
+    item.textContent = `${suspect.name.charAt(0).toUpperCase()} — Place`;
     item.addEventListener('click', (e) => {
       e.stopPropagation();
       removeRadialMenu();
@@ -249,12 +285,49 @@ function handleCellClick(
     menu.appendChild(item);
   }
 
-  // Clear option
+  // Annotation: X mark toggle
+  const cellKey = `${x},${y}`;
+  const hasX = state.annotations.x.some(([cx, cy]) => cx === x && cy === y);
+  const xItem = document.createElement('div');
+  xItem.className = 'alibi-radial-item alibi-radial-annotation';
+  xItem.setAttribute('data-testid', `suspect-option-markx`);
+  xItem.textContent = hasX ? '✕ Clear X' : '✕ Mark X';
+  xItem.addEventListener('click', (e) => {
+    e.stopPropagation();
+    removeRadialMenu();
+    callbacks.onToggleX(x, y);
+  });
+  menu.appendChild(xItem);
+
+  // Annotation: ? candidates (unplaced suspects not already ? on this cell)
+  const cellCandidates = state.annotations.candidates[cellKey] ?? [];
+  for (const suspect of puzzle.suspects) {
+    if (placedIds.has(suspect.id)) continue; // skip placed suspects
+    const hasQ = cellCandidates.includes(suspect.id);
+    const qItem = document.createElement('div');
+    qItem.className = 'alibi-radial-item alibi-radial-annotation';
+    qItem.setAttribute('data-testid', `suspect-option-candidate-${suspect.id}`);
+    qItem.textContent = hasQ
+      ? `${suspect.name.charAt(0).toUpperCase()}? Remove`
+      : `${suspect.name.charAt(0).toUpperCase()}? Maybe`;
+    qItem.addEventListener('click', (e) => {
+      e.stopPropagation();
+      removeRadialMenu();
+      if (hasQ) {
+        callbacks.onRemoveCandidate(suspect.id, x, y);
+      } else {
+        callbacks.onAddCandidate(suspect.id, x, y);
+      }
+    });
+    menu.appendChild(qItem);
+  }
+
+  // Clear option (if a suspect is at this cell)
   if (existing) {
     const clearItem = document.createElement('div');
     clearItem.className = 'alibi-radial-item alibi-radial-clear';
     clearItem.setAttribute('data-testid', 'suspect-option-clear');
-    clearItem.textContent = 'Clear';
+    clearItem.textContent = 'Remove Suspect';
     clearItem.addEventListener('click', (e) => {
       e.stopPropagation();
       removeRadialMenu();
