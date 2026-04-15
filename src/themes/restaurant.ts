@@ -44,14 +44,14 @@ const clueTemplates: ClueTemplates = {
 
   inColumn: (s, c) => pickVariant([
     `${s} was in the ${ordinal(c)} column.`,
-    `${s} was seated in column ${c}.`,
-    `${s}'s table was in the ${ordinal(c)} column.`,
+    `${s} was positioned in column ${c}.`,
+    `${s} was observed in the ${ordinal(c)} column.`,
   ], s + c),
 
   inRow: (s, r) => pickVariant([
     `${s} was in the ${ordinal(r)} row.`,
-    `${s} was seated along row ${r}.`,
-    `${s}'s table was on the ${ordinal(r)} row.`,
+    `${s} was positioned on row ${r}.`,
+    `${s}'s location was the ${ordinal(r)} row.`,
   ], s + r),
 
   besideSuspect: (s, o) => pickVariant([
@@ -102,12 +102,12 @@ const clueTemplates: ClueTemplates = {
   northOf: (s, o) => pickVariant([
     `${s} was north of ${o}.`,
     `${s} was closer to the entrance than ${o}.`,
-    `${s} was seated in the front section relative to ${o}.`,
+    `${s} was in the front of the restaurant relative to ${o}.`,
   ], s + o),
 
   southOf: (s, o) => pickVariant([
     `${s} was south of ${o}.`,
-    `${s} was at a table deeper in the restaurant than ${o}.`,
+    `${s} was deeper in the restaurant than ${o}.`,
     `${s} was in the back section relative to ${o}.`,
   ], s + o),
 

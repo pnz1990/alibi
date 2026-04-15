@@ -45,7 +45,7 @@ const clueTemplates: ClueTemplates = {
   inColumn: (s, c) => pickVariant([
     `${s} was in the ${ordinal(c)} column.`,
     `${s} was positioned in column ${c}.`,
-    `${s}'s station was the ${ordinal(c)} column.`,
+    `${s} was located in the ${ordinal(c)} column.`,
   ], s + c),
 
   inRow: (s, r) => pickVariant([
