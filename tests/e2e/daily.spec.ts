@@ -52,4 +52,20 @@ test.describe('daily case', () => {
     await page.waitForSelector('[data-testid="screen-game"]', { timeout: 5000 });
     expect(errors).toHaveLength(0);
   });
+
+  test('daily navigation includes mode=daily in URL', async ({ page }) => {
+    await page.goto('/alibi/');
+    await page.waitForSelector('[data-testid="screen-home"]');
+    await page.locator('[data-testid="btn-daily"]').click();
+    await page.waitForSelector('[data-testid="screen-game"]', { timeout: 5000 });
+    // URL should contain mode=daily so game.ts can identify this as a daily puzzle
+    expect(page.url()).toContain('mode=daily');
+  });
+
+  test('home screen has daily-streak testid element', async ({ page }) => {
+    await page.goto('/alibi/');
+    await page.waitForSelector('[data-testid="screen-home"]');
+    // daily-streak element should exist in DOM (even if streak is 0)
+    await expect(page.locator('[data-testid="daily-streak"]')).toBeAttached();
+  });
 });
