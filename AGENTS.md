@@ -6,7 +6,7 @@ ALIBI is a browser murder mystery logic-deduction game with three play modes: Ca
 
 Inspired by the book Murdoku by Manuel Garand. Read `docs/aide/vision.md` before starting any implementation work.
 
-**Status**: v1.0.0 shipped. Active post-v1.0 work: visual overhaul (#41), alphabetical names (#42), cell annotations (#43).
+**Status**: v1.0.0 shipped. Active post-v1.0 work: visual overhaul (#41 ✅), alphabetical names (#42 ✅), cell annotations (#43 ✅). **Stage 7 in progress**: room zones (#47), furniture sprites (#48), victim placeholder (#49), wheel radial menu (#50), layout polish (#51), suspect portraits (#52).
 
 ---
 
@@ -642,6 +642,8 @@ Every PR touching render/game/modes/storage must be verified with BOTH:
 | Victim cell highlight | `victim-cell` |
 | Cell X annotation | `cell-annotation-x-{x}-{y}` |
 | Cell ? candidates container | `cell-annotation-candidates-{x}-{y}` |
+| Victim token (sidebar unknown) | `victim-token` |
+| Suspect portrait card (sidebar) | `suspect-card-{id}` |
 | GUILTY stamp | `guilty-stamp` |
 | Killer name on GUILTY | `guilty-killer-name` |
 | Clue gate message | `msg-clue-gate` |
@@ -687,6 +689,10 @@ Every PR touching render/game/modes/storage must be verified with BOTH:
 | suspectNames array not alphabetically ordered (index 0 ≠ A-name) | QA |
 | Suspect name selected by PRNG instead of by index | QA |
 | Cell annotation state stored outside PuzzleState.annotations | QA |
+| room.cells from FloorPlanDef not consulted by canvas renderer (rooms invisible) | QA |
+| theme.spriteMap all empty strings shipped to production (no sprites) | QA |
+| CELL_SIZE hardcoded to 64 without responsive scaling (grid too small) | QA |
+| Clue card body text in pixel font at <10px (unreadable) | QA |
 
 ---
 

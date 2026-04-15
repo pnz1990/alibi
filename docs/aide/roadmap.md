@@ -192,3 +192,47 @@ The build order is strict: engine before renderer, renderer before modes, modes 
 - Undo/redo must include annotation changes.
 - Saved in `PuzzleState.annotations` (schema update required in `src/storage/schema.ts`).
 - New data-testids: `cell-annotation-x-{x}-{y}`, `cell-annotation-candidates-{x}-{y}`.
+
+---
+
+## Stage 7b: Visual Game Quality (post-v1.0, second wave)
+
+**Goal:** Make the game look and feel like a professional released title. All items tracked as GitHub issues. This stage was triggered by direct player feedback on the deployed game.
+
+### Deliverables (issues #47–#52)
+
+#### #47 — Room zones: tinted backgrounds + boundary borders
+- `renderGrid()` must consult `puzzle.floorPlan.rooms` to render room tints.
+- Each room gets a distinct semi-transparent color tint (applied BEFORE tile drawing).
+- Room boundaries rendered as thick borders on edges between adjacent rooms.
+- Room name label centered within each room on the grid.
+- Sidebar shows a room legend with color swatches.
+
+#### #48 — Furniture sprites: inline SVGs for all 23 object types
+- Create `src/assets/sprites/index.ts` exporting `SPRITE_SVGS: Record<string, string>`.
+- One SVG per object type; pixel-art style, `viewBox="0 0 32 32"`.
+- Renderer uses `SPRITE_SVGS` as fallback when `theme.spriteMap[type]` is empty.
+- No plain beige labeled rectangles for any object type.
+
+#### #49 — Victim placeholder always visible
+- Before all suspects placed: show a ghost '?' marker in the sidebar and on each candidate cell area.
+- After all placed: animate reveal, show victim name in sidebar 'VICTIM' section.
+- `data-testid="victim-token"` on the sidebar victim element.
+
+#### #50 — Circular wheel radial menu (replaces flat dropdown)
+- Circular pie-menu centered on clicked cell; items arranged in arcs.
+- CSS scale animation on open (150ms).
+- Touch drag-to-select: touchmove → angle → highlight arc → touchend → select.
+- All existing `data-testid` attributes preserved.
+
+#### #51 — Layout polish: responsive cell size, panel frames, readable clue text
+- `CELL_SIZE` calculated responsively from viewport (min 56, max 96).
+- Grid wrapped in a framed panel with border + box-shadow.
+- Sidebar has visual separator from grid panel.
+- **Clue body text: switch from pixel font to readable system font at 12–13px.** Pixel font for headings only.
+- Subtle diagonal-hatch background texture on game screen.
+
+#### #52 — Suspect portrait cards in sidebar + upgraded canvas tokens
+- Sidebar cards: 80px wide with 48px portrait area (programmatic geometric face/silhouette).
+- Canvas token: includes mini portrait + name plate below.
+- `data-testid="suspect-card-{id}"` on each sidebar card.

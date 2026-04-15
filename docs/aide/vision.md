@@ -120,6 +120,20 @@ Stats tracked per player: total cases solved, best time per theme/difficulty, cu
 
 ## What "Done" Looks Like
 
-A player opens the URL. They see a noir-styled home screen with three big buttons: Campaign, Quick Play, Daily Case. They start a new campaign, see a case file board with 12 cases. They play Case 1 (Easy, Coffee Shop). They see a pixel-art floor plan with chairs and plants, five suspect tokens labelled A through E, six natural-language clue cards in a notepad-style sidebar. They annotate cells with X and ? while deducing, confirm placements, watch clues check off, click the last empty cell, see the GUILTY stamp slam in with the killer's name. They return the next day and their Case 2 is waiting.
+A player opens the URL. They see a noir-styled home screen with three big buttons: Campaign, Quick Play, Daily Case. They start a new campaign, see a case file board with 12 cases. They play Case 1 (Easy, Coffee Shop). They see a **pixel-art floor plan** with the floor plan divided into visually distinct colored rooms (Bar tinted amber, Main Area slate, Restroom dusty rose), furniture objects rendered as recognizable pixel icons (a plant, a bar counter, a cash register), chairs as visible seat icons. Five suspect portrait cards on the left panel labelled A–E with geometric pixel avatars. Six natural-language clue cards below in readable text. They annotate cells with X and ? while deducing, confirm placements, watch clues check off, click the last empty cell (which had a ghost '?' victim marker all along), see the GUILTY stamp slam in with the killer's name. The whole experience looks like it was made by a real game studio.
 
 That is the product.
+
+---
+
+## Visual Quality Bar (mandatory — not optional polish)
+
+The game must look like a **professional shipped game**. Specific requirements:
+
+1. **Room zones are visible.** A player can instantly see distinct colored areas on the grid. Clues referencing rooms (\"Ben was not in the Main Area\") are immediately decodable by color.
+2. **Furniture objects are recognizable.** Plants look like plants. Bar counters look like bar counters. No plain beige boxes with abbreviated text.
+3. **Clue text is readable without zooming.** Clue card body text uses a readable font (not pixel font) at ≥12px.
+4. **The grid fills the screen.** On a standard desktop (1440px), the grid should occupy at least 55% of the viewport height. Cell size is responsive.
+5. **There is visual separation** between the game grid and the sidebar. Not just two divs flush against each other.
+6. **The victim is always present.** A '?' marker indicates the unknown victim location from the start. It does not appear out of nowhere when all suspects are placed.
+7. **The radial menu is a wheel.** Opening a cell shows a circular pie menu centered on the click, not a vertical dropdown.
