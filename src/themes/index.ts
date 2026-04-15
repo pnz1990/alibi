@@ -9,6 +9,9 @@ import { COFFEE_SHOP_THEME } from './coffee-shop';
 import { BOOKSTORE_THEME } from './bookstore';
 import { BACKYARD_THEME } from './backyard';
 import { HOLIDAY_MALL_THEME } from './holiday-mall';
+import { RESTAURANT_THEME } from './restaurant';
+import { GYM_THEME } from './gym';
+import { OFFICE_THEME } from './office';
 
 export type { ClueType };
 
@@ -89,6 +92,9 @@ registerTheme(COFFEE_SHOP_THEME);
 registerTheme(BOOKSTORE_THEME);
 registerTheme(BACKYARD_THEME);
 registerTheme(HOLIDAY_MALL_THEME);
+registerTheme(RESTAURANT_THEME);
+registerTheme(GYM_THEME);
+registerTheme(OFFICE_THEME);
 
 // STUB_THEME: test-only theme, registered last so real themes take precedence
 import { STUB_THEME } from './stub-theme';
