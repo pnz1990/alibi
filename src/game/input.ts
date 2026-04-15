@@ -470,12 +470,16 @@ function handleCellClick(
   const existing = Array.from(state.placements.entries())
     .find(([, p]) => p.x === x && p.y === y);
 
+  const placedIds = new Set(state.placements.keys());
+  const unplacedSuspects = puzzle.suspects.filter(s => !placedIds.has(s.id));
+
+  // ── Level 1: placement wheel ──────────────────────────────────────────────
+  // Items: unplaced suspects + X mark + ? (candidate sub-wheel entry) + remove
+  // Maximum N+2 arcs (N suspects + X + ?), plus remove if a suspect is here.
   const items: WheelItem[] = [];
 
-  // Unplaced suspects
-  const placedIds = new Set(state.placements.keys());
-  for (const suspect of puzzle.suspects) {
-    if (placedIds.has(suspect.id)) continue;
+  // Suspect placement options
+  for (const suspect of unplacedSuspects) {
     items.push({
       label:    suspect.name.charAt(0).toUpperCase(),
       sublabel: `Place ${suspect.name}`,
@@ -495,8 +499,52 @@ function handleCellClick(
     onClick:  () => callbacks.onToggleX(x, y),
   });
 
-  // ? candidate toggles
+  // ? sub-wheel entry point (only if there are unplaced suspects to annotate)
+  if (unplacedSuspects.length > 0) {
+    items.push({
+      label:    '?',
+      sublabel: 'Mark candidate',
+      testid:   'suspect-option-candidates',
+      color:    '#1a3a5a',
+      onClick:  () => openCandidateSubWheel(x, y, screenX, screenY, getState, puzzle, callbacks),
+    });
+  }
+
+  // Remove suspect option (if this cell has a placed suspect)
+  if (existing) {
+    items.push({
+      label:    '↩',
+      sublabel: 'Remove',
+      testid:   'suspect-option-clear',
+      color:    '#2a2a2a',
+      onClick:  () => callbacks.onRemove(existing[0]),
+    });
+  }
+
+  if (!items.length) return;
+  openWheel(screenX, screenY, items);
+}
+
+/**
+ * Opens the candidate sub-wheel (Level 2).
+ * Shows only the ? candidate toggle options for unplaced suspects.
+ * Replaces the main wheel — the player gets here via the '?' arc.
+ */
+function openCandidateSubWheel(
+  x: number,
+  y: number,
+  screenX: number,
+  screenY: number,
+  getState: () => GameState,
+  puzzle: Puzzle,
+  callbacks: InputCallbacks,
+): void {
+  const state = getState();
+  const placedIds = new Set(state.placements.keys());
   const cellCandidates = state.annotations.candidates[`${x},${y}`] ?? [];
+
+  const items: WheelItem[] = [];
+
   for (const suspect of puzzle.suspects) {
     if (placedIds.has(suspect.id)) continue;
     const hasQ = cellCandidates.includes(suspect.id);
@@ -511,17 +559,5 @@ function handleCellClick(
     });
   }
 
-  // Remove suspect option
-  if (existing) {
-    items.push({
-      label:    '↩',
-      sublabel: 'Remove',
-      testid:   'suspect-option-clear',
-      color:    '#2a2a2a',
-      onClick:  () => callbacks.onRemove(existing[0]),
-    });
-  }
-
-  if (!items.length) return;
-  openWheel(screenX, screenY, items);
+  if (items.length) openWheel(screenX, screenY, items);
 }
