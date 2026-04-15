@@ -19,7 +19,12 @@
         -webkit-tap-highlight-color: transparent;
         touch-action: manipulation;
       }
-      canvas { display: block; max-width: 100%; }
+      canvas {
+        display: block;
+        max-width: 100%;
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
+      }
       /* Keyboard focus outline for accessibility */
       :focus-visible { outline: 2px solid #c0392b; outline-offset: 2px; }
     </style>

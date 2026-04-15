@@ -12,67 +12,90 @@ const OVERLAY_STYLES = `
 .alibi-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.75);
+  background: rgba(0, 0, 0, 0.82);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 100;
-  font-family: monospace;
+  font-family: 'Press Start 2P', monospace;
 }
 .alibi-modal {
-  background: #1a1a2e;
-  border: 2px solid #c0392b;
-  border-radius: 8px;
-  padding: 32px;
-  max-width: 480px;
+  background: #0a0a12;
+  /* Pixel border — no radius */
+  border: 3px solid #c0392b;
+  border-radius: 0;
+  box-shadow: 4px 4px 0 #6b0000, 8px 8px 0 rgba(0,0,0,0.5);
+  padding: 28px 32px;
+  max-width: 440px;
   width: 90%;
   color: #ffffff;
   text-align: center;
 }
 .alibi-modal h2 {
-  font-size: 1.4em;
-  margin-bottom: 16px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.85em;
+  margin-bottom: 20px;
   color: #c0392b;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.12em;
+  line-height: 1.6;
 }
 .alibi-modal p {
-  font-size: 0.95em;
-  line-height: 1.6;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.5em;
+  line-height: 2;
   margin-bottom: 24px;
   color: #cccccc;
 }
 .alibi-modal button {
   background: #c0392b;
   color: #ffffff;
-  border: none;
-  padding: 10px 28px;
-  font-family: monospace;
-  font-size: 1em;
+  border: 2px solid #ff5a47;
+  border-radius: 0;
+  padding: 10px 24px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.6em;
   cursor: pointer;
-  border-radius: 4px;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
+  box-shadow: 3px 3px 0 #6b0000;
 }
-.alibi-modal button:hover {
-  background: #e74c3c;
-}
+.alibi-modal button:hover { background: #e74c3c; }
+.alibi-modal button:active { transform: translate(2px,2px); box-shadow: 1px 1px 0 #6b0000; }
+/* GUILTY stamp — pixel-art slam animation */
 .alibi-guilty-stamp {
-  font-size: 3em;
-  font-weight: bold;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 1.8em;
   color: #c0392b;
   text-transform: uppercase;
-  letter-spacing: 0.15em;
-  margin: 16px 0;
-  transform: rotate(-5deg) skewX(-5deg);
+  letter-spacing: 0.1em;
+  margin: 20px 0 12px;
   display: inline-block;
-  text-shadow: 2px 2px 0 #8a0000;
+  transform: rotate(-6deg);
+  /* Hard pixel shadow */
+  text-shadow:
+    3px 0 0 #6b0000,
+    0 3px 0 #6b0000,
+    3px 3px 0 #6b0000,
+    -1px -1px 0 #ff7060;
+  border: 4px solid #c0392b;
+  padding: 6px 16px;
+  animation: alibi-stamp 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes alibi-stamp {
+  0%   { transform: rotate(-6deg) scale(2.5); opacity: 0; }
+  70%  { transform: rotate(-6deg) scale(0.92); opacity: 1; }
+  85%  { transform: rotate(-6deg) scale(1.06); }
+  100% { transform: rotate(-6deg) scale(1); opacity: 1; }
 }
 .alibi-guilty-killer {
-  font-size: 1.6em;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.75em;
   font-weight: bold;
   color: #ffffff;
-  margin: 8px 0;
+  margin: 12px 0 6px;
+  letter-spacing: 0.05em;
+  line-height: 1.6;
 }
 `;
 

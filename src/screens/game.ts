@@ -190,15 +190,18 @@ const SCREEN_STYLES = `
 .alibi-canvas-wrapper { flex-shrink: 0; overflow: auto; position: relative; }
 .alibi-sidebar-container { flex: 1; height: 100vh; overflow-y: auto; display: flex; flex-direction: column; }
 .alibi-toolbar {
-  display: flex; gap: 6px; padding: 8px 12px;
-  background: #0d0d1a; border-bottom: 1px solid #333; flex-shrink: 0;
+  display: flex; gap: 6px; padding: 8px 10px;
+  background: #0a0a12; border-bottom: 2px solid #333; flex-shrink: 0;
 }
 .alibi-toolbar button {
-  background: #1e1e35; color: #fff; border: 1px solid #444;
-  padding: 4px 10px; font-family: monospace; font-size: 12px;
-  cursor: pointer; border-radius: 3px;
+  background: #1a1a2e; color: #ccc; border: 2px solid #444;
+  border-radius: 0;
+  padding: 5px 10px; font-family: 'Press Start 2P', monospace; font-size: 8px;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 #000;
 }
-.alibi-toolbar button:hover { background: #2a2a50; }
+.alibi-toolbar button:hover { background: #2a2a50; color: #fff; }
+.alibi-toolbar button:active { transform: translate(1px,1px); box-shadow: 1px 1px 0 #000; }
 `;
 
 let screenStylesInjected = false;
@@ -252,8 +255,8 @@ function addShareButton(puzzle: Puzzle, state: GameState): void {
   b.setAttribute('data-testid', 'btn-share');
   b.style.cssText =
     'position:fixed;bottom:24px;right:24px;z-index:300;' +
-    'background:#c0392b;color:#fff;border:none;padding:10px 20px;' +
-    'font-family:monospace;font-size:14px;cursor:pointer;border-radius:4px;';
+    'background:#c0392b;color:#fff;border:2px solid #ff5a47;border-radius:0;padding:10px 20px;' +
+    'font-family:"Press Start 2P",monospace;font-size:11px;cursor:pointer;box-shadow:3px 3px 0 #6b0000;';
   b.textContent = '📋 Share Result';
   b.addEventListener('click', async () => {
     const text = generateShareText(puzzle, state.elapsedMs);
@@ -273,32 +276,32 @@ function showResumePrompt(
   overlay.setAttribute('data-testid', 'prompt-resume');
   overlay.style.cssText =
     'position:fixed;inset:0;background:rgba(0,0,0,0.75);display:flex;' +
-    'align-items:center;justify-content:center;z-index:150;font-family:monospace;';
+    'align-items:center;justify-content:center;z-index:150;font-family:"Press Start 2P",monospace;';
 
   const box = document.createElement('div');
   box.style.cssText =
-    'background:#1a1a2e;border:2px solid #c0392b;border-radius:8px;' +
-    'padding:28px;max-width:360px;text-align:center;color:#fff;';
+    'background:#0a0a12;border:3px solid #c0392b;border-radius:0;' +
+    'box-shadow:4px 4px 0 #6b0000;padding:28px;max-width:360px;text-align:center;color:#fff;';
 
   const h = document.createElement('h2');
-  h.style.cssText = 'color:#c0392b;margin-bottom:12px;';
-  h.textContent = 'Resume Investigation?';
+  h.style.cssText = 'color:#c0392b;margin-bottom:16px;font-family:"Press Start 2P",monospace;font-size:0.75em;line-height:1.6;';
+  h.textContent = 'Resume?';
 
   const p = document.createElement('p');
-  p.style.cssText = 'color:#aaa;margin-bottom:20px;font-size:0.9em;';
-  p.textContent = 'You have an in-progress case. Resume where you left off?';
+  p.style.cssText = 'color:#aaa;margin-bottom:20px;font-family:"Press Start 2P",monospace;font-size:0.45em;line-height:2;';
+  p.textContent = 'Continue your in-progress case?';
 
   const resumeB = document.createElement('button');
   resumeB.style.cssText =
-    'background:#c0392b;color:#fff;border:none;padding:9px 20px;' +
-    'font-family:monospace;cursor:pointer;border-radius:4px;margin-right:8px;';
+    'background:#c0392b;color:#fff;border:2px solid #ff5a47;border-radius:0;padding:9px 20px;' +
+    'font-family:"Press Start 2P",monospace;font-size:9px;cursor:pointer;margin-right:8px;box-shadow:2px 2px 0 #6b0000;';
   resumeB.textContent = 'Resume';
   resumeB.addEventListener('click', () => { overlay.remove(); onResume(); });
 
   const freshB = document.createElement('button');
   freshB.style.cssText =
-    'background:#333;color:#fff;border:none;padding:9px 20px;' +
-    'font-family:monospace;cursor:pointer;border-radius:4px;';
+    'background:#1a1a2e;color:#fff;border:2px solid #555;border-radius:0;padding:9px 20px;' +
+    'font-family:"Press Start 2P",monospace;font-size:9px;cursor:pointer;box-shadow:2px 2px 0 #000;';
   freshB.textContent = 'Start Fresh';
   freshB.addEventListener('click', () => { overlay.remove(); onFresh(); });
 

@@ -10,6 +10,9 @@
  *   ?theme=X&...        → game screen (puzzle)
  */
 
+// Pixel font — bundled by @fontsource/press-start-2p, no runtime fetch
+import '@fontsource/press-start-2p';
+
 import { mountGameScreen } from './screens/game';
 import { mountHomeScreen } from './screens/home';
 import { mountCampaignBoard } from './screens/campaign-board';
