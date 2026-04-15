@@ -4,6 +4,7 @@
  */
 
 import type { Theme, ClueTemplates } from './index';
+import { pickVariant } from './text-variants';
 import { FLOOR_PLANS } from './floor-plans';
 
 function ordinal(n: number): string {
@@ -13,23 +14,107 @@ function ordinal(n: number): string {
 }
 
 const clueTemplates: ClueTemplates = {
-  inRoom:             (s, r) => `${s} was in the ${r}.`,
-  notInRoom:          (s, r) => `${s} was not in the ${r}.`,
-  inSameRoom:         (s, o) => `${s} was working in the same area as ${o}.`,
-  inDifferentRoom:    (s, o) => `${s} and ${o} were in different parts of the office.`,
-  inColumn:           (s, c) => `${s} was in the ${ordinal(c)} column.`,
-  inRow:              (s, r) => `${s} was in the ${ordinal(r)} row.`,
-  besideSuspect:      (s, o) => `${s} was working right next to ${o}.`,
-  notBesideSuspect:   (s, o) => `${s} was not beside ${o}.`,
-  besideObject:       (s, obj) => `${s} was beside ${obj}.`,
-  notBesideObject:    (s, obj) => `${s} was not near ${obj}.`,
+  inRoom: (s, r) => pickVariant([
+    `${s} was in the ${r}.`,
+    `${s} was seen working in the ${r}.`,
+    `Access logs confirm ${s} was in the ${r}.`,
+    `${s} spent time in the ${r} that day.`,
+  ], s + r),
+
+  notInRoom: (s, r) => pickVariant([
+    `${s} was not in the ${r}.`,
+    `${s} never entered the ${r}.`,
+    `Access logs show ${s} was not in the ${r}.`,
+    `Colleagues confirmed ${s} wasn't in the ${r}.`,
+  ], s + r),
+
+  inSameRoom: (s, o) => pickVariant([
+    `${s} was working in the same area as ${o}.`,
+    `${s} and ${o} shared the same workspace.`,
+    `A colleague saw ${s} near ${o}.`,
+    `${s} was at the same section as ${o}.`,
+  ], s + o),
+
+  inDifferentRoom: (s, o) => pickVariant([
+    `${s} and ${o} were in different parts of the office.`,
+    `${s} was not in the same area as ${o}.`,
+    `The floor plan places ${s} and ${o} in separate zones.`,
+    `${o} confirmed they weren't near ${s}.`,
+  ], s + o),
+
+  inColumn: (s, c) => pickVariant([
+    `${s} was in the ${ordinal(c)} column.`,
+    `${s}'s desk was in column ${c}.`,
+    `${s} worked in the ${ordinal(c)} column.`,
+  ], s + c),
+
+  inRow: (s, r) => pickVariant([
+    `${s} was in the ${ordinal(r)} row.`,
+    `${s}'s workstation was on row ${r}.`,
+    `${s} was at the ${ordinal(r)} row of desks.`,
+  ], s + r),
+
+  besideSuspect: (s, o) => pickVariant([
+    `${s} was working right next to ${o}.`,
+    `${s}'s desk was adjacent to ${o}'s.`,
+    `${s} and ${o} sat just one desk apart.`,
+    `A colleague noticed ${s} right beside ${o}.`,
+  ], s + o),
+
+  notBesideSuspect: (s, o) => pickVariant([
+    `${s} was not beside ${o}.`,
+    `${s} and ${o} were not at adjacent desks.`,
+    `${s} was not close to ${o}'s workstation.`,
+  ], s + o),
+
+  besideObject: (s, obj) => pickVariant([
+    `${s} was beside ${obj}.`,
+    `${s}'s desk was right next to ${obj}.`,
+    `${s} worked near ${obj}.`,
+  ], s + obj),
+
+  notBesideObject: (s, obj) => pickVariant([
+    `${s} was not near ${obj}.`,
+    `${s}'s workspace was away from ${obj}.`,
+    `${s} was not beside ${obj}.`,
+  ], s + obj),
+
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onSeatTile:         (s, _t) => `${s} was sitting at their desk.`,
-  notOnSeatTile:      (s) => `${s} was not sitting down.`,
-  northOf:            (s, o) => `${s} was north of ${o}.`,
-  southOf:            (s, o) => `${s} was south of ${o}.`,
-  exactlyNRowsNorth:  (s, o, n) => `${s} was exactly ${n} row${n > 1 ? 's' : ''} north of ${o}.`,
-  exactlyNRowsSouth:  (s, o, n) => `${s} was exactly ${n} row${n > 1 ? 's' : ''} south of ${o}.`,
+  onSeatTile: (s, _t) => pickVariant([
+    `${s} was sitting at their desk.`,
+    `${s} was at their workstation at the time.`,
+    `${s} was seated and working.`,
+    `${s} had not left their desk.`,
+  ], s),
+
+  notOnSeatTile: (s) => pickVariant([
+    `${s} was not sitting down.`,
+    `${s} was away from their desk.`,
+    `${s} was standing or moving around.`,
+    `${s} had left their workstation.`,
+  ], s),
+
+  northOf: (s, o) => pickVariant([
+    `${s} was north of ${o}.`,
+    `${s}'s desk was closer to the entrance than ${o}'s.`,
+    `${s} was in the front of the office relative to ${o}.`,
+  ], s + o),
+
+  southOf: (s, o) => pickVariant([
+    `${s} was south of ${o}.`,
+    `${s}'s desk was deeper in the office than ${o}'s.`,
+    `${s} was in the back section relative to ${o}.`,
+  ], s + o),
+
+  exactlyNRowsNorth: (s, o, n) => pickVariant([
+    `${s} was exactly ${n} row${n > 1 ? 's' : ''} north of ${o}.`,
+    `${s}'s desk was ${n} row${n > 1 ? 's' : ''} ahead of ${o}'s.`,
+  ], s + o + n),
+
+  exactlyNRowsSouth: (s, o, n) => pickVariant([
+    `${s} was exactly ${n} row${n > 1 ? 's' : ''} south of ${o}.`,
+    `${s}'s desk was ${n} row${n > 1 ? 's' : ''} behind ${o}'s.`,
+  ], s + o + n),
 };
 
 export const OFFICE_THEME: Theme = {

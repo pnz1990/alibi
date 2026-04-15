@@ -4,6 +4,7 @@
  */
 
 import type { Theme, ClueTemplates } from './index';
+import { pickVariant } from './text-variants';
 import { FLOOR_PLANS } from './floor-plans';
 
 function ordinal(n: number): string {
@@ -13,25 +14,117 @@ function ordinal(n: number): string {
 }
 
 const clueTemplates: ClueTemplates = {
-  inRoom:             (s, r) => `${s} was in the ${r}.`,
-  notInRoom:          (s, r) => `${s} was not in the ${r}.`,
-  inSameRoom:         (s, o) => `${s} was in the same ward as ${o}.`,
-  inDifferentRoom:    (s, o) => `${s} and ${o} were in different parts of the hospital.`,
-  inColumn:           (s, c) => `${s} was in the ${ordinal(c)} column.`,
-  inRow:              (s, r) => `${s} was in the ${ordinal(r)} row.`,
-  besideSuspect:      (s, o) => `${s} was standing right next to ${o}.`,
-  notBesideSuspect:   (s, o) => `${s} was not beside ${o}.`,
-  besideObject:       (s, obj) => `${s} was beside ${obj}.`,
-  notBesideObject:    (s, obj) => `${s} was not near ${obj}.`,
-  onSeatTile:         (s, t) =>
-    t === 'bed' ? `${s} was in a hospital bed.`
-    : t === 'sofa' ? `${s} was in the waiting area.`
-    : `${s} was sitting down.`,
-  notOnSeatTile:      (s) => `${s} was not sitting or lying down.`,
-  northOf:            (s, o) => `${s} was north of ${o}.`,
-  southOf:            (s, o) => `${s} was south of ${o}.`,
-  exactlyNRowsNorth:  (s, o, n) => `${s} was exactly ${n} row${n > 1 ? 's' : ''} north of ${o}.`,
-  exactlyNRowsSouth:  (s, o, n) => `${s} was exactly ${n} row${n > 1 ? 's' : ''} south of ${o}.`,
+  inRoom: (s, r) => pickVariant([
+    `${s} was in the ${r}.`,
+    `${s} was recorded in the ${r}.`,
+    `Hospital logs confirm ${s} was in the ${r}.`,
+    `${s} was present in the ${r} at the time.`,
+  ], s + r),
+
+  notInRoom: (s, r) => pickVariant([
+    `${s} was not in the ${r}.`,
+    `${s} was not recorded in the ${r}.`,
+    `Staff confirmed ${s} was absent from the ${r}.`,
+    `${s} had no reason to be in the ${r}.`,
+  ], s + r),
+
+  inSameRoom: (s, o) => pickVariant([
+    `${s} was in the same ward as ${o}.`,
+    `${s} and ${o} were logged in the same area.`,
+    `A nurse placed ${s} alongside ${o}.`,
+    `${s} was observed near ${o} at the time.`,
+  ], s + o),
+
+  inDifferentRoom: (s, o) => pickVariant([
+    `${s} and ${o} were in different parts of the hospital.`,
+    `${s} was not in the same area as ${o}.`,
+    `Logs confirm ${s} and ${o} were in separate zones.`,
+    `${o} was not in ${s}'s section.`,
+  ], s + o),
+
+  inColumn: (s, c) => pickVariant([
+    `${s} was in the ${ordinal(c)} column.`,
+    `${s}'s position was column ${c}.`,
+    `${s} was in the ${ordinal(c)} column of the ward.`,
+  ], s + c),
+
+  inRow: (s, r) => pickVariant([
+    `${s} was in the ${ordinal(r)} row.`,
+    `${s} was assigned to row ${r} of the ward.`,
+    `${s}'s position was on the ${ordinal(r)} row.`,
+  ], s + r),
+
+  besideSuspect: (s, o) => pickVariant([
+    `${s} was standing right next to ${o}.`,
+    `${s} was observed in proximity to ${o}.`,
+    `${s} and ${o} were in adjacent positions.`,
+    `A nurse noted ${s} directly beside ${o}.`,
+  ], s + o),
+
+  notBesideSuspect: (s, o) => pickVariant([
+    `${s} was not beside ${o}.`,
+    `${s} and ${o} were not in adjacent positions.`,
+    `${s} was not in proximity to ${o}.`,
+  ], s + o),
+
+  besideObject: (s, obj) => pickVariant([
+    `${s} was beside ${obj}.`,
+    `${s} was found adjacent to ${obj}.`,
+    `${s} was in the immediate vicinity of ${obj}.`,
+  ], s + obj),
+
+  notBesideObject: (s, obj) => pickVariant([
+    `${s} was not near ${obj}.`,
+    `${s} was not adjacent to ${obj}.`,
+    `${s} was not beside ${obj}.`,
+  ], s + obj),
+
+  onSeatTile: (s, t) =>
+    t === 'bed'
+      ? pickVariant([
+          `${s} was in a hospital bed.`,
+          `${s} was admitted and lying in bed.`,
+          `${s} was bedridden at the time.`,
+        ], s)
+      : t === 'sofa'
+      ? pickVariant([
+          `${s} was in the waiting area.`,
+          `${s} was seated in the waiting room.`,
+          `${s} had not yet been admitted — still waiting.`,
+        ], s)
+      : pickVariant([
+          `${s} was sitting down.`,
+          `${s} was seated at the time.`,
+        ], s),
+
+  notOnSeatTile: (s) => pickVariant([
+    `${s} was not sitting or lying down.`,
+    `${s} was on their feet.`,
+    `${s} was ambulatory at the time.`,
+    `${s} was standing throughout.`,
+  ], s),
+
+  northOf: (s, o) => pickVariant([
+    `${s} was north of ${o}.`,
+    `${s}'s position was closer to the entrance than ${o}'s.`,
+    `${s} was in the front section of the ward relative to ${o}.`,
+  ], s + o),
+
+  southOf: (s, o) => pickVariant([
+    `${s} was south of ${o}.`,
+    `${s} was deeper in the ward than ${o}.`,
+    `${s}'s position was further from the entrance than ${o}'s.`,
+  ], s + o),
+
+  exactlyNRowsNorth: (s, o, n) => pickVariant([
+    `${s} was exactly ${n} row${n > 1 ? 's' : ''} north of ${o}.`,
+    `${s} was ${n} bed-row${n > 1 ? 's' : ''} ahead of ${o}.`,
+  ], s + o + n),
+
+  exactlyNRowsSouth: (s, o, n) => pickVariant([
+    `${s} was exactly ${n} row${n > 1 ? 's' : ''} south of ${o}.`,
+    `${s} was ${n} bed-row${n > 1 ? 's' : ''} behind ${o}.`,
+  ], s + o + n),
 };
 
 export const HOSPITAL_THEME: Theme = {

@@ -12,7 +12,7 @@
  * 9. Derive victim cell.
  * 10. Derive killer.
  * 11. Select narrative variants.
- * 12. Generate clues (variety-constrained selection).
+ * 12. Generate clues (difficulty-scaled count, variety-constrained selection).
  * 13. Solver uniqueness check. Add extra clues if needed (up to 5×).
  * 14. Full retry on failure (up to 20×).
  */
@@ -87,7 +87,23 @@ function shuffled<T>(rng: () => number, arr: T[]): T[] {
 }
 
 /**
- * Select clue types for N suspects, enforcing variety constraints.
+ * Returns the target number of primary clues to generate for a given
+ * number of suspects and difficulty. Harder difficulties get fewer starting
+ * clues — the solver adds more only if uniqueness requires it.
+ *
+ *   Easy   → N     (one per suspect — maximum information)
+ *   Medium → N - 1 (one suspect left without a primary clue)
+ *   Hard   → N - 2 (two suspects without primary clues — more deduction required)
+ *
+ * Minimum is always 2 so the solver has something to work with.
+ */
+function targetClueCount(N: number, difficulty: Difficulty): number {
+  const reductions: Record<Difficulty, number> = { easy: 0, medium: 1, hard: 2 };
+  return Math.max(2, N - reductions[difficulty]);
+}
+
+/**
+ * Select clue types for `targetCount` suspects, enforcing variety constraints.
  * See AGENTS.md §Clue Variety Constraint Algorithm.
  */
 function selectClueTypes(
@@ -96,6 +112,7 @@ function selectClueTypes(
   difficulty: Difficulty,
   fp: FloorPlanDef,
 ): ClueType[] {
+  const targetCount = targetClueCount(N, difficulty);
   const allowed = ALLOWED_CLUE_TYPES[difficulty];
   const hasObjects = fp.landmarks.length >= 2;
   const hasSeatTiles = fp.tiles.some(row => row.some(t => isSeatTile(t)));
@@ -106,10 +123,10 @@ function selectClueTypes(
     return true;
   });
 
-  const maxUsage = Math.ceil(N * 0.4);
+  const maxUsage = Math.ceil(targetCount * 0.4);
   const selected: ClueType[] = [];
 
-  for (let i = 0; i < N; i++) {
+  for (let i = 0; i < targetCount; i++) {
     const forbidden = new Set<ClueType>();
     if (selected.length > 0) forbidden.add(selected[selected.length - 1]);
 
@@ -493,15 +510,21 @@ export function generatePuzzle(seed: number, theme: Theme, difficulty: Difficult
       .replace('{{killerName}}', killer.name)
       .replace('{{evidenceText}}', 'the evidence is conclusive');
 
-    // Generate primary clues (one per suspect)
+    // Generate primary clues — targetCount clues across a PRNG-shuffled subset of suspects.
+    // Harder difficulties target fewer primary clues (see targetClueCount()).
+    // The solver uniqueness loop adds extra clues if needed.
     const clueTypes = selectClueTypes(rng, N, difficulty, fp);
+    const targetCount = clueTypes.length; // already reduced by difficulty
     const clues: Clue[] = [];
 
-    for (let i = 0; i < N; i++) {
-      const suspect = suspects[i];
+    // Shuffle suspect order so the clue-less suspects vary by seed (not always the last ones)
+    const suspectOrder = shuffled(rng, [...suspects]);
+
+    for (let i = 0; i < targetCount; i++) {
+      const suspect = suspectOrder[i];
       const type = clueTypes[i];
 
-      // Try to generate the desired type; fall back to inRow if it fails
+      // Try to generate the desired type; fall back to inRow/inColumn
       let clue = generateClue(rng, fp, theme, type, suspect, suspects, solution);
       if (!clue) {
         clue = generateClue(rng, fp, theme, 'inRow', suspect, suspects, solution);
