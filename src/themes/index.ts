@@ -12,6 +12,9 @@ import { HOLIDAY_MALL_THEME } from './holiday-mall';
 import { RESTAURANT_THEME } from './restaurant';
 import { GYM_THEME } from './gym';
 import { OFFICE_THEME } from './office';
+import { GARDEN_PARTY_THEME } from './garden-party';
+import { HOSPITAL_THEME } from './hospital';
+import { CARNIVAL_THEME } from './carnival';
 
 export type { ClueType };
 
@@ -95,6 +98,9 @@ registerTheme(HOLIDAY_MALL_THEME);
 registerTheme(RESTAURANT_THEME);
 registerTheme(GYM_THEME);
 registerTheme(OFFICE_THEME);
+registerTheme(GARDEN_PARTY_THEME);
+registerTheme(HOSPITAL_THEME);
+registerTheme(CARNIVAL_THEME);
 
 // STUB_THEME: test-only theme, registered last so real themes take precedence
 import { STUB_THEME } from './stub-theme';
