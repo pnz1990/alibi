@@ -9,12 +9,18 @@
 
 import type { CampaignSave, CaseRecord, DetectiveRank, Difficulty } from '../storage/schema';
 
-/** Themes in the pool for campaign case generation. */
+/** Themes in the pool for campaign case generation. All 10 themes available. */
 const CAMPAIGN_THEME_POOL = [
   'coffee-shop',
-  'coffee-shop', // placeholder until themes 2-4 are implemented (#18-20)
-  'coffee-shop',
-  'coffee-shop',
+  'bookstore',
+  'backyard',
+  'holiday-mall',
+  'restaurant',
+  'gym',
+  'office',
+  'garden-party',
+  'hospital',
+  'carnival',
 ] as const;
 
 /** Campaign case template: difficulty progression per case index (0-11). */
