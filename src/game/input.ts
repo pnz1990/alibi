@@ -52,12 +52,15 @@ const RADIAL_STYLES = `
   box-shadow: 0 4px 20px rgba(0,0,0,0.5);
 }
 .alibi-radial-item {
-  padding: 7px 12px;
+  padding: 10px 16px;
   cursor: pointer;
   color: #fff;
-  font-size: 13px;
+  font-size: 14px;
   border-radius: 4px;
   white-space: nowrap;
+  min-height: 44px;  /* touch target minimum per WCAG */
+  display: flex;
+  align-items: center;
 }
 .alibi-radial-item:hover {
   background: #c0392b;
