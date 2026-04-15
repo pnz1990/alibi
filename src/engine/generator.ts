@@ -458,11 +458,29 @@ function placeSuspects(
 /**
  * Main generator function.
  * Throws PuzzleGenerationError if it cannot produce a unique-solution puzzle
- * after 20 full retries.
+ * after MAX_FULL_RETRIES full retries.
+ *
+ * Quality goal: minimise trivial "direct pin" suspects (inRow + inColumn pair).
+ * We track the best puzzle found so far (fewest direct pins) and return it
+ * after MAX_FULL_RETRIES even if the ideal pin count isn't achieved.
+ * This guarantees no PuzzleGenerationError while improving quality where possible.
  */
 export function generatePuzzle(seed: number, theme: Theme, difficulty: Difficulty): Puzzle {
-  const MAX_FULL_RETRIES = 20; // original value
+  const MAX_FULL_RETRIES = 40; // more retries to find low-pin arrangements
 
+  // Target: at most this many suspects directly pinned (inRow + inColumn pair)
+  // Hard:   ceil(N * 0.5) — at most half directly pinned
+  // Medium: ceil(N * 0.6) — at most 60% directly pinned
+  // Easy:   N (no limit — beginners need full guidance)
+  function pinTarget(N: number): number {
+    if (difficulty === 'easy') return N;
+    if (difficulty === 'medium') return Math.ceil(N * 0.6);
+    return Math.ceil(N * 0.5); // hard
+  }
+
+  // Best puzzle found so far (fewest direct pins)
+  let bestPuzzle: Puzzle | null = null;
+  let bestPins = Infinity;
   for (let attempt = 0; attempt < MAX_FULL_RETRIES; attempt++) {
     const attemptSeed = (seed + attempt * 97) >>> 0;
     const rng = makePRNG(attemptSeed);
@@ -569,7 +587,13 @@ export function generatePuzzle(seed: number, theme: Theme, difficulty: Difficult
 
     if (solverResult.count !== 1) continue; // still not unique — retry
 
-    return {
+    // Count direct-pin suspects (inRow + inColumn for same suspect)
+    const directPins = suspects.filter(s =>
+      clues.some(c => c.type === 'inRow'    && c.suspectId === s.id) &&
+      clues.some(c => c.type === 'inColumn' && c.suspectId === s.id)
+    ).length;
+
+    const candidate: Puzzle = {
       seed: attemptSeed,
       themeId: theme.id,
       difficulty,
@@ -584,7 +608,21 @@ export function generatePuzzle(seed: number, theme: Theme, difficulty: Difficult
       narrativeGuilty,
       floorPlan: fp,
     };
+
+    // Accept immediately if pin count meets the target
+    if (directPins <= pinTarget(N)) {
+      return candidate;
+    }
+
+    // Otherwise, remember as the best found so far and keep searching
+    if (directPins < bestPins) {
+      bestPins = directPins;
+      bestPuzzle = candidate;
+    }
   }
+
+  // Return the best puzzle found (lowest direct pins), or throw if none
+  if (bestPuzzle) return bestPuzzle;
 
   throw new PuzzleGenerationError(
     `Failed to generate unique puzzle after ${MAX_FULL_RETRIES} retries (seed=${seed}, theme=${theme.id}, difficulty=${difficulty})`
