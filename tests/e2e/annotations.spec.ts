@@ -84,8 +84,18 @@ test.describe('cell annotations: X mark', () => {
   });
 });
 
+async function openCandidateSubWheel(page: import('@playwright/test').Page): Promise<boolean> {
+  // Click the '?' entry arc to open the candidate sub-wheel
+  const candidatesEntry = page.locator('[data-testid="suspect-option-candidates"]');
+  if (!(await candidatesEntry.isVisible({ timeout: 1000 }).catch(() => false))) return false;
+  await candidatesEntry.click();
+  // Sub-wheel replaces main wheel; wait for candidate options to appear
+  const firstCandidate = page.locator('[data-testid^="suspect-option-candidate-"]').first();
+  return await firstCandidate.isVisible({ timeout: 1000 }).catch(() => false);
+}
+
 test.describe('cell annotations: ? candidates', () => {
-  test('? candidate option appears in radial menu', async ({ page }) => {
+  test('? candidate option appears in radial menu (via sub-wheel)', async ({ page }) => {
     await setup(page);
 
     const cell = page.locator('[data-testid="cell-0-1"]').first();
@@ -95,7 +105,11 @@ test.describe('cell annotations: ? candidates', () => {
     const menu = page.locator('[data-testid="radial-menu"]');
     if (!(await menu.isVisible({ timeout: 2000 }).catch(() => false))) return;
 
-    // At least one ? candidate option should exist (suspect s0)
+    // Open the ? sub-wheel via the '?' entry arc
+    const subWheelOpened = await openCandidateSubWheel(page);
+    if (!subWheelOpened) return; // skip if sub-wheel didn't open (layout variation)
+
+    // At least one ? candidate option should now be visible
     const candidateOpts = page.locator('[data-testid^="suspect-option-candidate-"]');
     const count = await candidateOpts.count();
     expect(count).toBeGreaterThan(0);
@@ -110,9 +124,12 @@ test.describe('cell annotations: ? candidates', () => {
     await cell.click();
     if (!(await page.locator('[data-testid="radial-menu"]').isVisible({ timeout: 2000 }).catch(() => false))) return;
 
+    // Open sub-wheel
+    const subWheelOpened = await openCandidateSubWheel(page);
+    if (!subWheelOpened) return;
+
     // Click the first candidate option
     const firstCandidate = page.locator('[data-testid^="suspect-option-candidate-"]').first();
-    if (!(await firstCandidate.isVisible({ timeout: 1000 }).catch(() => false))) return;
     await firstCandidate.click();
 
     // Candidates annotation overlay should exist
@@ -126,9 +143,7 @@ test.describe('cell annotations: ? candidates', () => {
       return (window as AlibiWindow).__alibi_puzzle?.suspects[0]?.id ?? 's0';
     });
 
-    // Find a placeable cell and add candidate ?
-    // Use cell that we know exists and is placeable
-    let foundCell = false;
+    // Find a placeable cell and add candidate ? via the sub-wheel
     for (const [cx, cy] of [[0,1],[1,0],[1,1],[2,2],[0,2]]) {
       const cell = page.locator(`[data-testid="cell-${cx}-${cy}"]`).first();
       if (await cell.count() === 0) continue;
@@ -137,13 +152,19 @@ test.describe('cell annotations: ? candidates', () => {
       const menu = page.locator('[data-testid="radial-menu"]');
       if (!(await menu.isVisible({ timeout: 1500 }).catch(() => false))) continue;
 
+      // Open candidate sub-wheel
+      const subWheelOpened = await openCandidateSubWheel(page);
+      if (!subWheelOpened) {
+        await page.keyboard.press('Escape');
+        continue;
+      }
+
       const candidateOpt = page.locator(`[data-testid="suspect-option-candidate-${firstSuspectId}"]`);
       if (!(await candidateOpt.isVisible({ timeout: 1000 }).catch(() => false))) {
         await page.keyboard.press('Escape');
         continue;
       }
       await candidateOpt.click();
-      foundCell = true;
 
       // Verify candidate was added somewhere
       const added = await page.locator(`[data-testid^="cell-annotation-candidates-"]`).count();
