@@ -6,6 +6,7 @@ import { describe, it, expect } from 'vitest';
 import {
   deriveCaseSeed,
   deriveCaseTheme,
+  deriveCaseThemes,
   createNewCampaign,
   calculateRank,
   completeCampaignCase,
@@ -89,6 +90,27 @@ describe('createNewCampaign', () => {
     // Can't force seed in createNewCampaign, but test deriveCaseSeed directly
     const seed = c1.campaignSeed;
     expect(deriveCaseSeed(seed, 0)).toBe(deriveCaseSeed(seed, 0));
+  });
+
+  it('each difficulty tier uses 4 distinct themes (no repeats)', () => {
+    // Verify across 50 random campaign seeds
+    for (let i = 0; i < 50; i++) {
+      const campaignSeed = (i * 0x9e3779b9 + 0x12345678) >>> 0;
+      const themes = deriveCaseThemes(campaignSeed);
+      expect(themes).toHaveLength(12);
+
+      // Easy tier (0-3): all distinct
+      const easyThemes = themes.slice(0, 4);
+      expect(new Set(easyThemes).size).toBe(4);
+
+      // Medium tier (4-7): all distinct
+      const medThemes = themes.slice(4, 8);
+      expect(new Set(medThemes).size).toBe(4);
+
+      // Hard tier (8-11): all distinct
+      const hardThemes = themes.slice(8, 12);
+      expect(new Set(hardThemes).size).toBe(4);
+    }
   });
 });
 

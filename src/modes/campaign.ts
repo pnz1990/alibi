@@ -44,16 +44,55 @@ export function deriveCaseSeed(campaignSeed: number, caseIndex: number): number 
 }
 
 /**
- * Derives the theme ID for a case from the campaign seed and case index.
- * Uses PRNG to select from theme pool without repetition within a difficulty tier.
+ * Minimal seeded PRNG for theme shuffling — mulberry32 variant.
+ * Returns a function that yields floats in [0, 1).
+ */
+function makeShufflePRNG(seed: number): () => number {
+  let s = seed;
+  return function (): number {
+    s |= 0; s = s + 0x6D2B79F5 | 0;
+    let t = Math.imul(s ^ s >>> 15, 1 | s);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * Derives the theme IDs for all 12 cases from the campaign seed.
+ * Guarantees 4 distinct themes per difficulty tier (Easy/Medium/Hard)
+ * by using a seeded Fisher-Yates shuffle of the theme pool per tier.
+ *
+ * Returns an array of 12 theme IDs (indices 0-11).
+ * Deterministic: same campaignSeed → same 12 themes always.
+ */
+export function deriveCaseThemes(campaignSeed: number): string[] {
+  const themes: string[] = [];
+
+  for (let tier = 0; tier < 3; tier++) {
+    // Seed the shuffle for this tier with campaignSeed mixed with tier index
+    const tierSeed = (campaignSeed ^ (tier * 0xdeadbeef)) >>> 0;
+    const rng = makeShufflePRNG(tierSeed);
+
+    // Fisher-Yates shuffle of the full pool
+    const pool = [...CAMPAIGN_THEME_POOL];
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+
+    // Take the first 4 from the shuffled pool (guaranteed distinct)
+    themes.push(...pool.slice(0, 4));
+  }
+
+  return themes;
+}
+
+/**
+ * @deprecated Use deriveCaseThemes(campaignSeed)[caseIndex] instead.
+ * Kept for backward compatibility — reads from the new implementation.
  */
 export function deriveCaseTheme(campaignSeed: number, caseIndex: number): string {
-  const tier = Math.floor(caseIndex / 4); // 0, 1, or 2
-  const posInTier = caseIndex % 4;        // 0-3
-  const seed = (campaignSeed ^ (tier * 0x1337 + posInTier * 0x42)) >>> 0;
-  const pool = [...CAMPAIGN_THEME_POOL];
-  // Simple index selection — returns same theme for now until more themes exist
-  return pool[seed % pool.length];
+  return deriveCaseThemes(campaignSeed)[caseIndex];
 }
 
 /**
@@ -62,9 +101,10 @@ export function deriveCaseTheme(campaignSeed: number, caseIndex: number): string
  */
 export function createNewCampaign(slot: 1 | 2 | 3): CampaignSave {
   const campaignSeed = generateCampaignSeed();
+  const caseThemes = deriveCaseThemes(campaignSeed);
   const cases: CaseRecord[] = Array.from({ length: 12 }, (_, i) => ({
     seed:       deriveCaseSeed(campaignSeed, i),
-    themeId:    deriveCaseTheme(campaignSeed, i),
+    themeId:    caseThemes[i],
     difficulty: CASE_DIFFICULTIES[i],
     status:     i === 0 ? 'in_progress' : 'locked',
   }));
