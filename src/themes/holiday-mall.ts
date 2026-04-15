@@ -47,7 +47,7 @@ export const HOLIDAY_MALL_THEME: Theme = {
   suspectNames: [
     'Ashley', 'Brett', 'Cameron', 'Denise', 'Eli',
     'Felicia', 'Grant', 'Holly', 'Irving', 'Jade',
-    'Kyle', 'Melody',
+    'Kyle', 'Leighton',
   ],
 
   victimNames: [

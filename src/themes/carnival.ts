@@ -43,7 +43,7 @@ export const CARNIVAL_THEME: Theme = {
   suspectNames: [
     'Alistair', 'Brigitte', 'Cosmo', 'Dafne', 'Ezra',
     'Flavia', 'Gideon', 'Harriet', 'Ignatius', 'Juno',
-    'Ludo', 'Mirabel',
+    'Kit', 'Ludo',
   ],
   victimNames: ['Victor', 'Valentina', 'Vex', 'Vane', 'Vesper', 'Volta'],
   clueTemplates,
