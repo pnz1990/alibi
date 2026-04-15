@@ -175,9 +175,16 @@ function generateClue(
     }
 
     case 'notInRoom': {
-      // Pick a room the suspect is NOT in
+      // Pick a room the suspect is NOT in.
+      // Guard: only pick rooms where at least one placeable cell in the suspect's
+      // COLUMN belongs to that room. If no such cell exists, the clue would be
+      // trivially true (the suspect could never be in that room anyway).
       const currentRoom = getRoomAt(fp, placement.x, placement.y);
-      const otherRooms = fp.rooms.filter(r => r.id !== currentRoom);
+      const otherRooms = fp.rooms.filter(r => {
+        if (r.id === currentRoom) return false;
+        // Check if any cell in this room shares the suspect's column
+        return r.cells.some(([cx]) => cx === placement.x);
+      });
       if (otherRooms.length === 0) return null;
       const targetRoom = prngPick(rng, otherRooms);
       return {
@@ -207,12 +214,24 @@ function generateClue(
     }
 
     case 'inDifferentRoom': {
+      // Guard: only generate if A's column and B's column share at least one room.
+      // If A is always in rooms that B could never be in (and vice versa), the
+      // clue is trivially true and gives the player no information.
       const room = getRoomAt(fp, placement.x, placement.y);
       const diffRoomSuspects = suspects.filter(s => {
         if (s.id === suspect.id) return false;
         const p = solution.get(s.id)!;
         const sr = getRoomAt(fp, p.x, p.y);
-        return sr !== null && sr !== room;
+        if (sr === null || sr === room) return false;
+        // Guard: check there's at least one room that contains cells in BOTH columns.
+        // This ensures "different room" is not trivially forced by the floor plan.
+        const colA = placement.x;
+        const colB = p.x;
+        const sharedRoom = fp.rooms.some(r =>
+          r.cells.some(([cx]) => cx === colA) &&
+          r.cells.some(([cx]) => cx === colB)
+        );
+        return sharedRoom;
       });
       if (diffRoomSuspects.length === 0) return null;
       const other = prngPick(rng, diffRoomSuspects);
@@ -257,10 +276,18 @@ function generateClue(
     }
 
     case 'notBesideSuspect': {
+      // Guard: only generate if the two suspects could plausibly be adjacent.
+      // Chebyshev distance requires |dx| ≤ 1 AND |dy| ≤ 1. Since each suspect
+      // occupies a fixed column, |colA - colB| > 1 means they can NEVER be
+      // adjacent regardless of row — making "not beside" trivially true.
+      const colA = placement.x;
       const notAdjacent = suspects.filter(s => {
         if (s.id === suspect.id) return false;
         const p = solution.get(s.id)!;
-        return Math.max(Math.abs(placement.x - p.x), Math.abs(placement.y - p.y)) > 1;
+        const colB = p.x;
+        // Only generate if columns are close enough that adjacency is possible
+        if (Math.abs(colA - colB) > 1) return false;
+        return Math.max(Math.abs(colA - colB), Math.abs(placement.y - p.y)) > 1;
       });
       if (notAdjacent.length === 0) return null;
       const other = prngPick(rng, notAdjacent);
@@ -291,12 +318,30 @@ function generateClue(
 
     case 'notBesideObject': {
       if (fp.landmarks.length === 0) return null;
-      // Find landmarks NOT within chebyshev 1
-      const notAdjacent = fp.landmarks.filter(lm =>
-        Math.max(Math.abs(placement.x - lm.x), Math.abs(placement.y - lm.y)) > 1
-      );
-      if (notAdjacent.length === 0) return null;
-      const lm = prngPick(rng, notAdjacent);
+      // Guard: only generate if there is at least one placeable cell in the
+      // suspect's COLUMN that IS adjacent (chebyshev ≤ 1) to the object.
+      // If no cell in the column is near the object, "not beside" is always
+      // true for any placement — vacuous and confusing.
+      const col = placement.x;
+      const constrainingLandmarks = fp.landmarks.filter(lm => {
+        // Is lm adjacent to any column's NOT the actual solution position?
+        // Must return false (not beside) in solution AND at least one cell
+        // in the same column IS beside it (so the clue actually constrains).
+        if (Math.max(Math.abs(col - lm.x), Math.abs(placement.y - lm.y)) <= 1) {
+          return false; // suspect IS beside it — wrong type, use besideObject
+        }
+        // Check if any OTHER placeable cell in this column is adjacent to lm
+        for (let y = 0; y < fp.height; y++) {
+          const tile = fp.tiles[y][col];
+          if (!isPlaceable(tile)) continue;
+          if (Math.max(Math.abs(col - lm.x), Math.abs(y - lm.y)) <= 1) {
+            return true; // at least one cell in this col is beside lm → clue is meaningful
+          }
+        }
+        return false; // no cell in this col ever touches lm → clue is vacuous
+      });
+      if (constrainingLandmarks.length === 0) return null;
+      const lm = prngPick(rng, constrainingLandmarks);
       const objectTile = fp.tiles[lm.y][lm.x];
       return {
         type: 'notBesideObject',

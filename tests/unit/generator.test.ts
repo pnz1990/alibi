@@ -5,7 +5,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { countSolutions } from '../../src/engine/solver';
 import { generatePuzzle, PuzzleGenerationError, makePRNG } from '../../src/engine/generator';
-import { getValidCols, getValidRows } from '../../src/engine/grid';
+import { getValidCols, getValidRows, isPlaceable } from '../../src/engine/grid';
+import type { Tile } from '../../src/engine/grid';
 import { STUB_THEME } from '../../src/themes/index';
 import { COFFEE_SHOP_THEME } from '../../src/themes/coffee-shop';
 import { FLOOR_PLANS } from '../../src/themes/floor-plans';
@@ -230,5 +231,65 @@ describe('generatePuzzle — clue count scales with difficulty', () => {
     }
     // With 4 variants and varied suspect/room names, we should see multiple distinct texts
     expect(texts.size).toBeGreaterThan(1);
+  });
+});
+
+describe('generatePuzzle — vacuous clue guard', () => {
+  it('notBesideObject clues are always constraining (50 seeds, stub theme)', () => {
+    // A notBesideObject clue is vacuous if no placeable cell in the suspect's
+    // column is adjacent (chebyshev ≤ 1) to the target object.
+    // After the fix, such clues must never be generated.
+    let vacuousFound = 0;
+    for (let seed = 0; seed < 50; seed++) {
+      for (const diff of ['medium', 'hard'] as const) {
+        const puzzle = generatePuzzle(seed, STUB_THEME, diff);
+        const fp = puzzle.floorPlan;
+        for (const clue of puzzle.clues) {
+          if (clue.type !== 'notBesideObject') continue;
+          const suspect = puzzle.suspects.find(s => s.id === clue.suspectId)!;
+          const placement = puzzle.solution.get(suspect.id)!;
+          const col = placement.x;
+          // Collect landmarks with the clue's objectTile
+          const lms = fp.landmarks.filter(lm => fp.tiles[lm.y][lm.x] === clue.objectTile);
+          // Check: is any cell in this column adjacent to any of those landmarks?
+          let anyAdjacent = false;
+          for (const lm of lms) {
+            for (let y = 0; y < fp.height && !anyAdjacent; y++) {
+              const tile = fp.tiles[y][col];
+              if (!isPlaceable(tile as Tile)) continue;
+              if (Math.max(Math.abs(col - lm.x), Math.abs(y - lm.y)) <= 1) {
+                anyAdjacent = true;
+              }
+            }
+          }
+          if (!anyAdjacent) {
+            vacuousFound++;
+            // Helpful debug: what was vacuous
+            console.log(`VACUOUS seed=${seed} ${diff}: ${clue.text}`);
+          }
+        }
+      }
+    }
+    expect(vacuousFound).toBe(0);
+  });
+
+  it('notBesideSuspect clues are only generated for column-adjacent suspects', () => {
+    // notBesideSuspect(A, B) is vacuous if |A.col - B.col| > 1, because
+    // suspects in distant columns can never be adjacent (chebyshev ≤ 1).
+    let vacuousFound = 0;
+    for (let seed = 0; seed < 50; seed++) {
+      for (const diff of ['medium', 'hard'] as const) {
+        const puzzle = generatePuzzle(seed, STUB_THEME, diff);
+        for (const clue of puzzle.clues) {
+          if (clue.type !== 'notBesideSuspect') continue;
+          const sA = puzzle.suspects.find(s => s.id === clue.suspectId)!;
+          const sB = puzzle.suspects.find(s => s.id === clue.otherSuspectId)!;
+          const pA = puzzle.solution.get(sA.id)!;
+          const pB = puzzle.solution.get(sB.id)!;
+          if (Math.abs(pA.x - pB.x) > 1) vacuousFound++;
+        }
+      }
+    }
+    expect(vacuousFound).toBe(0);
   });
 });
