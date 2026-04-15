@@ -1,31 +1,36 @@
 # alibi: Current Progress
 
-> Updated by standalone agent — 2026-04-14 (Batch 1)
+> Updated by standalone agent — 2026-04-15 (Batch 5)
 
 ## Current State
 
-- **Active queue**: Stage 2 in progress
-- **Last completed**: Item #13 coffee-shop theme (PR #26)
+- **Active queue**: Stage 6 (polish + v1.0 release)
+- **Last completed**: All 10 themes — Stage 5 complete (PR #38)
 
 ## Stage Completion
 
 | Stage | Name | Status | Notes |
 |---|---|---|---|
-| 0 | Skeleton + Toolchain | ✅ Done | PR #23, merged |
-| 1 | Core Engine | ✅ Done | PR #25, merged. Engine, generator, solver, clues, grid, logic, storage schema, coffee-shop theme (#26) |
-| 2 | Coffee Shop Theme + Game Screen | 🔄 In Progress | Theme done (#26). Renderer (#14), game state (#15), storage (#15) remaining |
-| 3 | Home Screen + All Three Play Modes | 📋 Planned | Depends on Stage 2 |
-| 4 | Themes 2–4 (Bookstore, Backyard, Mall) | 📋 Planned | Depends on Stage 3 |
-| 5 | Themes 5–10 (Restaurant → Carnival) | 📋 Planned | Depends on Stage 4 |
-| 6 | Polish + v1.0 Release | 📋 Planned | Depends on Stage 5 |
+| 0 | Skeleton + Toolchain | ✅ Done | PR #23 |
+| 1 | Core Engine | ✅ Done | PR #25 |
+| 2 | Coffee Shop Theme + Game Screen | ✅ Done | PRs #26, #28, #29 |
+| 3 | Home Screen + All Three Play Modes | ✅ Done | PRs #30, #32 |
+| 4 | Themes 2–4 (Bookstore, Backyard, Mall) | ✅ Done | PRs #34, #35, #36 |
+| 5 | Themes 5–10 (Restaurant → Carnival) | ✅ Done | PRs #37, #38 |
+| 6 | Polish + v1.0 Release | 🔄 Next | Lighthouse ≥80, mobile layout, bitmap font, GitHub release |
 
 ## Journey Status
 
 | Journey | Status | Notes |
 |---|---|---|
-| 1: Build + deploy | 🟡 Partial | Build ✅, unit tests ✅, e2e smoke ✅, home screen ❌ (Stage 3) |
-| 2: Generator valid across all themes | 🟡 Partial | 1 theme + stub passing; 9 themes pending Stages 4–5 |
-| 3: Coffee Shop playthrough | ❌ Not started | Renderer not built (Stage 2) |
-| 4: Campaign mode + persistence | ❌ Not started | Requires Stage 3 |
-| 5: Daily Case + all 10 themes | ❌ Not started | Requires Stages 4–5 |
+| 1: Build + deploy | 🟡 Partial | Build ✅, unit+e2e ✅; home screen visible at root ✅; GitHub Pages deployed |
+| 2: Generator valid across all themes | 🟡 Partial | All 10 themes pass × 3 difficulties on seed=42; some constrained floor plans (issue #24) |
+| 3: Coffee Shop playthrough | ✅ PASS | Full end-to-end: placement → GUILTY → share. Playwright + browser extension validated |
+| 4: Campaign mode + persistence | 🟡 Partial | Logic + storage done; board UI stub (full campaign wiring deferred to Stage 6) |
+| 5: Daily Case + all 10 themes | 🟡 Partial | Daily loads; all 10 themes available in Quick Play; daily rotation covers all themes |
 
+## Test Summary
+- Unit tests: 230 (13 files)
+- E2E tests: 40 (Playwright, chromium)
+- Bundle: 98.13 kB (gzip: 22.59 kB)
+- Lint: clean
