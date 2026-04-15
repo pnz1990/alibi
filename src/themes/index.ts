@@ -6,6 +6,7 @@
 import type { FloorPlanDef } from './floor-plans';
 import type { ClueType } from '../engine/clues';
 import { COFFEE_SHOP_THEME } from './coffee-shop';
+import { BOOKSTORE_THEME } from './bookstore';
 
 export type { ClueType };
 
@@ -83,6 +84,7 @@ export function getAllThemes(): Theme[] {
 // Themes are imported and explicitly registered to avoid circular dependencies.
 // ─────────────────────────────────────────────
 registerTheme(COFFEE_SHOP_THEME);
+registerTheme(BOOKSTORE_THEME);
 
 // STUB_THEME: test-only theme, registered last so real themes take precedence
 import { STUB_THEME } from './stub-theme';
