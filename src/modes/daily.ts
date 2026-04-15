@@ -31,41 +31,41 @@ interface DailyScheduleEntry {
 
 /**
  * 30-day daily rotation schedule.
- * Covers all 10 themes × Easy/Medium/Hard × 3 entries each = 90 total, cycling every 30 days.
- * Updated as more themes are implemented.
- * Day 0 of year is day[0], day 1 is day[1], etc.
+ * Covers all 10 themes × 3 difficulties = 30 entries, cycling every 30 days.
+ * Each theme appears once per cycle, rotating through Easy → Medium → Hard sequentially.
+ * Resolves issues #31 and #33.
  */
 const DAILY_SCHEDULE: DailyScheduleEntry[] = [
-  { themeId: 'coffee-shop', difficulty: 'easy'   },
-  { themeId: 'coffee-shop', difficulty: 'medium' },
-  { themeId: 'coffee-shop', difficulty: 'hard'   },
-  { themeId: 'coffee-shop', difficulty: 'easy'   },
-  { themeId: 'coffee-shop', difficulty: 'medium' },
-  { themeId: 'coffee-shop', difficulty: 'hard'   },
-  { themeId: 'coffee-shop', difficulty: 'easy'   },
-  { themeId: 'coffee-shop', difficulty: 'medium' },
-  { themeId: 'coffee-shop', difficulty: 'hard'   },
-  { themeId: 'coffee-shop', difficulty: 'easy'   },
-  { themeId: 'coffee-shop', difficulty: 'medium' },
-  { themeId: 'coffee-shop', difficulty: 'hard'   },
-  { themeId: 'coffee-shop', difficulty: 'easy'   },
-  { themeId: 'coffee-shop', difficulty: 'medium' },
-  { themeId: 'coffee-shop', difficulty: 'hard'   },
-  { themeId: 'coffee-shop', difficulty: 'easy'   },
-  { themeId: 'coffee-shop', difficulty: 'medium' },
-  { themeId: 'coffee-shop', difficulty: 'hard'   },
-  { themeId: 'coffee-shop', difficulty: 'easy'   },
-  { themeId: 'coffee-shop', difficulty: 'medium' },
-  { themeId: 'coffee-shop', difficulty: 'hard'   },
-  { themeId: 'coffee-shop', difficulty: 'easy'   },
-  { themeId: 'coffee-shop', difficulty: 'medium' },
-  { themeId: 'coffee-shop', difficulty: 'hard'   },
-  { themeId: 'coffee-shop', difficulty: 'easy'   },
-  { themeId: 'coffee-shop', difficulty: 'medium' },
-  { themeId: 'coffee-shop', difficulty: 'hard'   },
-  { themeId: 'coffee-shop', difficulty: 'easy'   },
-  { themeId: 'coffee-shop', difficulty: 'medium' },
-  { themeId: 'coffee-shop', difficulty: 'hard'   },
+  { themeId: 'coffee-shop',  difficulty: 'easy'   },
+  { themeId: 'bookstore',    difficulty: 'easy'   },
+  { themeId: 'backyard',     difficulty: 'easy'   },
+  { themeId: 'holiday-mall', difficulty: 'easy'   },
+  { themeId: 'restaurant',   difficulty: 'easy'   },
+  { themeId: 'gym',          difficulty: 'easy'   },
+  { themeId: 'office',       difficulty: 'easy'   },
+  { themeId: 'garden-party', difficulty: 'easy'   },
+  { themeId: 'hospital',     difficulty: 'easy'   },
+  { themeId: 'carnival',     difficulty: 'easy'   },
+  { themeId: 'coffee-shop',  difficulty: 'medium' },
+  { themeId: 'bookstore',    difficulty: 'medium' },
+  { themeId: 'backyard',     difficulty: 'medium' },
+  { themeId: 'holiday-mall', difficulty: 'medium' },
+  { themeId: 'restaurant',   difficulty: 'medium' },
+  { themeId: 'gym',          difficulty: 'medium' },
+  { themeId: 'office',       difficulty: 'medium' },
+  { themeId: 'garden-party', difficulty: 'medium' },
+  { themeId: 'hospital',     difficulty: 'medium' },
+  { themeId: 'carnival',     difficulty: 'medium' },
+  { themeId: 'coffee-shop',  difficulty: 'hard'   },
+  { themeId: 'bookstore',    difficulty: 'hard'   },
+  { themeId: 'backyard',     difficulty: 'hard'   },
+  { themeId: 'holiday-mall', difficulty: 'hard'   },
+  { themeId: 'restaurant',   difficulty: 'hard'   },
+  { themeId: 'gym',          difficulty: 'hard'   },
+  { themeId: 'office',       difficulty: 'hard'   },
+  { themeId: 'garden-party', difficulty: 'hard'   },
+  { themeId: 'hospital',     difficulty: 'hard'   },
+  { themeId: 'carnival',     difficulty: 'hard'   },
 ];
 
 /**

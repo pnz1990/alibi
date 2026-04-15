@@ -4,6 +4,8 @@
  * Navigation via URL param changes (no routing library).
  */
 
+import { getTodayDailyPuzzle } from '../modes/daily';
+
 const HOME_STYLES = `
 .alibi-home {
   display: flex;
@@ -125,7 +127,7 @@ export function mountHomeScreen(): void {
   screen.querySelector('[data-testid="btn-daily"]')!
     .addEventListener('click', () => {
       screen.remove();
-      const { seed, themeId, difficulty } = getDailySeed();
+      const { seed, themeId, difficulty } = getTodayDailyPuzzle();
       window.location.href = `${window.location.pathname}?theme=${themeId}&difficulty=${difficulty}&seed=${seed}`;
     });
 }
@@ -147,58 +149,4 @@ function makeBtn(testid: string, style: string, title: string, desc: string): HT
   return b;
 }
 
-// ─────────────────────────────────────────────
-// Daily seed derivation
-// Seed = djb2hash(YYYY-MM-DD)
-// 30-day rotation: maps day-of-cycle to (themeId, difficulty)
-// ─────────────────────────────────────────────
-
-const DAILY_ROTATION: Array<{ themeId: string; difficulty: 'easy' | 'medium' | 'hard' }> = [
-  { themeId: 'coffee-shop', difficulty: 'easy'   },
-  { themeId: 'coffee-shop', difficulty: 'medium' },
-  { themeId: 'coffee-shop', difficulty: 'hard'   },
-  { themeId: 'coffee-shop', difficulty: 'easy'   },
-  { themeId: 'coffee-shop', difficulty: 'medium' },
-  { themeId: 'coffee-shop', difficulty: 'hard'   },
-  { themeId: 'coffee-shop', difficulty: 'easy'   },
-  { themeId: 'coffee-shop', difficulty: 'medium' },
-  { themeId: 'coffee-shop', difficulty: 'hard'   },
-  { themeId: 'coffee-shop', difficulty: 'easy'   },
-  { themeId: 'coffee-shop', difficulty: 'medium' },
-  { themeId: 'coffee-shop', difficulty: 'hard'   },
-  { themeId: 'coffee-shop', difficulty: 'easy'   },
-  { themeId: 'coffee-shop', difficulty: 'medium' },
-  { themeId: 'coffee-shop', difficulty: 'hard'   },
-  { themeId: 'coffee-shop', difficulty: 'easy'   },
-  { themeId: 'coffee-shop', difficulty: 'medium' },
-  { themeId: 'coffee-shop', difficulty: 'hard'   },
-  { themeId: 'coffee-shop', difficulty: 'easy'   },
-  { themeId: 'coffee-shop', difficulty: 'medium' },
-  { themeId: 'coffee-shop', difficulty: 'hard'   },
-  { themeId: 'coffee-shop', difficulty: 'easy'   },
-  { themeId: 'coffee-shop', difficulty: 'medium' },
-  { themeId: 'coffee-shop', difficulty: 'hard'   },
-  { themeId: 'coffee-shop', difficulty: 'easy'   },
-  { themeId: 'coffee-shop', difficulty: 'medium' },
-  { themeId: 'coffee-shop', difficulty: 'hard'   },
-  { themeId: 'coffee-shop', difficulty: 'easy'   },
-  { themeId: 'coffee-shop', difficulty: 'medium' },
-  { themeId: 'coffee-shop', difficulty: 'hard'   },
-];
-
-function djb2(str: string): number {
-  let h = 5381;
-  for (let i = 0; i < str.length; i++) {
-    h = ((h << 5) + h + str.charCodeAt(i)) | 0;
-  }
-  return Math.abs(h);
-}
-
-export function getDailySeed(): { seed: number; themeId: string; difficulty: 'easy' | 'medium' | 'hard' } {
-  const today = new Date();
-  const dateStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-  const seed = djb2(dateStr);
-  const dayOfYear = Math.floor((today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / 86400000);
-  const { themeId, difficulty } = DAILY_ROTATION[dayOfYear % DAILY_ROTATION.length];
-  return { seed, themeId, difficulty };
-}
+// Daily seed derivation is handled by src/modes/daily.ts (getTodayDailyPuzzle)
