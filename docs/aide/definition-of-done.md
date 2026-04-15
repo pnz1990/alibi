@@ -159,8 +159,8 @@ browser_errors()          → zero across all themes
 
 | Journey | Status | Last checked | Notes |
 |---|---|---|---|
-| 1: Build + deploy | ❌ Not started | — | Requires Stage 0 |
-| 2: Generator valid across all themes | ❌ Not started | — | Requires Stage 1 + Stages 4–5 |
-| 3: Coffee Shop playthrough | ❌ Not started | — | Requires Stage 2 |
-| 4: Campaign mode + persistence | ❌ Not started | — | Requires Stage 3 |
-| 5: Daily Case + all 10 themes | ❌ Not started | — | Requires Stages 4–5 |
+| 1: Build + deploy | ✅ Passing | 2026-04-15 | npm run build + test + lint exit 0; GitHub Pages deployed at pnz1990.github.io/alibi/ |
+| 2: Generator valid across all themes | ✅ Passing | 2026-04-15 | 241 unit tests pass; 10 themes × 3 difficulties validated in generator.test.ts |
+| 3: Coffee Shop playthrough | ✅ Passing | 2026-04-15 | gameplay.spec.ts passes; GUILTY screen reached; share card shown |
+| 4: Campaign mode + persistence | ✅ Passing | 2026-04-15 | campaign.spec.ts 6/6; board wired to localStorage (#56 merged); slot picker works |
+| 5: Daily Case + all 10 themes | ✅ Passing | 2026-04-15 | daily.spec.ts passes; all 10 themes load without errors; 47 e2e tests pass |
