@@ -4,7 +4,8 @@
  * Navigation via URL param changes (no routing library).
  */
 
-import { getTodayDailyPuzzle } from '../modes/daily';
+import { getTodayDailyPuzzle, todayString } from '../modes/daily';
+import { loadStreak, loadDailySave } from '../storage/progress';
 
 const HOME_STYLES = `
 .alibi-home {
@@ -153,8 +154,26 @@ export function mountHomeScreen(): void {
     '12 escalating cases'));
   buttons.appendChild(makeBtn('btn-quickplay', 'secondary', '🎲 Quick Play',
     'Pick theme + difficulty'));
-  buttons.appendChild(makeBtn('btn-daily', 'secondary', '📅 Daily Case',
-    "Same worldwide · daily streak"));
+
+  // Daily Case button — show streak count and today's theme/difficulty
+  const { themeId: dailyTheme, difficulty: dailyDiff } = getTodayDailyPuzzle();
+  const streak = loadStreak();
+  const solvedToday = loadDailySave(todayString())?.solved ?? false;
+  const dailyThemeName = dailyTheme.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  const streakText = streak > 0
+    ? `🔥 ${streak} day${streak !== 1 ? 's' : ''}`
+    : 'Start your streak';
+  const dailyDesc = solvedToday
+    ? `✅ Solved · ${streakText}`
+    : `${dailyThemeName} · ${dailyDiff}`;
+  const dailyBtn = makeBtn('btn-daily', 'secondary', '📅 Daily Case', dailyDesc);
+  // Add hidden streak span for testid access
+  const streakSpan = document.createElement('span');
+  streakSpan.setAttribute('data-testid', 'daily-streak');
+  streakSpan.style.display = 'none';
+  streakSpan.textContent = String(streak);
+  dailyBtn.appendChild(streakSpan);
+  buttons.appendChild(dailyBtn);
 
   screen.append(eyebrow, title, subtitle, buttons);
   document.body.appendChild(screen);
@@ -174,7 +193,7 @@ export function mountHomeScreen(): void {
     .addEventListener('click', () => {
       screen.remove();
       const { seed, themeId, difficulty } = getTodayDailyPuzzle();
-      window.location.href = `${window.location.pathname}?theme=${themeId}&difficulty=${difficulty}&seed=${seed}`;
+      window.location.href = `${window.location.pathname}?theme=${themeId}&difficulty=${difficulty}&seed=${seed}&mode=daily`;
     });
 }
 

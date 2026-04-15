@@ -4,7 +4,7 @@
  * Orchestrates: puzzle generation → renderer → input handling → undo/redo
  *   → sound → save/resume → win sequence → share card.
  *
- * Reads URL params: ?theme=X&difficulty=Y&seed=Z
+ * Reads URL params: ?theme=X&difficulty=Y&seed=Z[&mode=daily][&campaignSlot=N&campaignCase=M]
  */
 
 import type { Difficulty } from '../storage/schema';
@@ -23,9 +23,15 @@ import {
 import type { GameState, GameSnapshot } from '../game/state';
 import { UndoStack } from '../game/undo';
 import { playSound, toggleMute } from '../game/sound';
-import { generateShareText, copyToClipboard } from '../game/share';
-import { savePuzzleState, loadPuzzleState, clearPuzzleState, loadCampaign, saveCampaign } from '../storage/progress';
+import { generateShareText, generateDailyShareText, copyToClipboard } from '../game/share';
+import {
+  savePuzzleState, loadPuzzleState, clearPuzzleState,
+  loadCampaign, saveCampaign,
+  saveDailySave, loadDailySave, loadStreak, saveStreak,
+  recordCompletion,
+} from '../storage/progress';
 import { completeCampaignCase } from '../modes/campaign';
+import { todayString } from '../modes/daily';
 import { attachInputHandlers } from '../game/input';
 
 type AlibiWindow = Window & {
@@ -43,6 +49,9 @@ export function mountGameScreen(_root: HTMLElement): void {
   const themeId    = params.get('theme')      ?? 'coffee-shop';
   const difficulty = (params.get('difficulty') ?? 'easy') as Difficulty;
   const seed       = parseInt(params.get('seed') ?? '0', 10);
+
+  // Game mode context — determines what to persist on completion
+  const gameMode = params.get('mode'); // 'daily' | null (null = Quick Play)
 
   // Campaign context — present when launched from campaign board
   const campaignSlotParam = params.get('campaignSlot');
@@ -142,10 +151,10 @@ export function mountGameScreen(_root: HTMLElement): void {
         playSound('solve');
         redraw();
         showGuiltyScreen(document.body, puzzle);
-        addShareButton(puzzle, finalElapsedMs);
 
-        // Campaign completion: persist progress and return to board after delay
+        // ── Persistence on completion ──────────────────────────────────────
         if (campaignSlot !== null && campaignCase !== null) {
+          // Campaign: update case status + rank, navigate back to board
           const save = loadCampaign(campaignSlot);
           if (save) {
             const updated = completeCampaignCase(
@@ -155,13 +164,36 @@ export function mountGameScreen(_root: HTMLElement): void {
               puzzle.killer.name,
             );
             saveCampaign(updated);
-            // Navigate back to campaign board after GUILTY screen (3s delay)
             setTimeout(() => {
               window.location.href =
                 `${window.location.pathname}?mode=campaign&campaignSlot=${campaignSlot}`;
             }, 3000);
           }
+        } else if (gameMode === 'daily') {
+          // Daily Case: save solve record, update streak, record completion
+          const today = todayString();
+          const alreadySolved = loadDailySave(today)?.solved ?? false;
+          if (!alreadySolved) {
+            saveDailySave({ date: today, solved: true, solveTimeMs: finalElapsedMs, killerName: puzzle.killer.name });
+            // Streak: consecutive if yesterday's daily was also solved
+            const yesterday = getPreviousDate(today);
+            const solvedYesterday = loadDailySave(yesterday)?.solved ?? false;
+            const currentStreak = loadStreak();
+            const newStreak = solvedYesterday ? currentStreak + 1 : 1;
+            saveStreak(newStreak);
+            recordCompletion(puzzle.themeId, puzzle.difficulty, finalElapsedMs);
+            addShareButton(puzzle, finalElapsedMs, newStreak);
+          } else {
+            // Already solved today — show share without modifying streak
+            const streak = loadStreak();
+            addShareButton(puzzle, finalElapsedMs, streak);
+          }
+        } else {
+          // Quick Play: just record completion stats
+          recordCompletion(puzzle.themeId, puzzle.difficulty, finalElapsedMs);
+          addShareButton(puzzle, finalElapsedMs, 0);
         }
+        // ──────────────────────────────────────────────────────────────────
       } else {
         playSound('error');
         redraw();
@@ -387,7 +419,8 @@ function btn(testid: string, label: string): HTMLButtonElement {
   return b;
 }
 
-function addShareButton(puzzle: Puzzle, elapsedMs: number): void {
+function addShareButton(puzzle: Puzzle, elapsedMs: number, streak: number): void {
+  const isDaily = new URLSearchParams(location.search).get('mode') === 'daily';
   const b = document.createElement('button');
   b.setAttribute('data-testid', 'btn-share');
   b.style.cssText =
@@ -396,12 +429,21 @@ function addShareButton(puzzle: Puzzle, elapsedMs: number): void {
     'font-family:"Press Start 2P",monospace;font-size:11px;cursor:pointer;box-shadow:3px 3px 0 #6b0000;';
   b.textContent = '📋 Share Result';
   b.addEventListener('click', async () => {
-    const text = generateShareText(puzzle, elapsedMs);
+    const text = isDaily && streak > 0
+      ? generateDailyShareText(puzzle, elapsedMs, streak)
+      : generateShareText(puzzle, elapsedMs);
     const ok = await copyToClipboard(text);
     b.textContent = ok ? '✓ Copied!' : '📋 Share Result';
     if (ok) setTimeout(() => { b.textContent = '📋 Share Result'; }, 2000);
   });
   document.body.appendChild(b);
+}
+
+/** Returns the date string for the day before the given YYYY-MM-DD. */
+function getPreviousDate(dateStr: string): string {
+  const d = new Date(dateStr + 'T12:00:00Z');
+  d.setUTCDate(d.getUTCDate() - 1);
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`;
 }
 
 function showResumePrompt(
