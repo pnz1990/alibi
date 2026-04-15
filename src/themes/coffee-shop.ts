@@ -61,7 +61,7 @@ export const COFFEE_SHOP_THEME: Theme = {
   suspectNames: [
     'Alice', 'Ben', 'Chloe', 'Diego', 'Elena',
     'Finlay', 'Grace', 'Hassan', 'Iris', 'Jake',
-    'Lena', 'Marco',
+    'Kai', 'Lena',
   ],
 
   victimNames: [

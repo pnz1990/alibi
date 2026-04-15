@@ -460,9 +460,9 @@ export function generatePuzzle(seed: number, theme: Theme, difficulty: Difficult
     const N = Math.min(validCols.length, validRows.length) - 1;
     if (N < 2) continue; // floor plan too small
 
-    // Select N suspect names
-    const suspectNamePool = shuffled(rng, [...theme.suspectNames]);
-    const suspectNames = suspectNamePool.slice(0, N);
+    // Select N suspect names by index (not random) — guarantees A→B→C order on the grid
+    // suspectNames[0] = A-name, suspectNames[1] = B-name, etc.
+    const suspectNames = theme.suspectNames.slice(0, N);
     const suspects: Suspect[] = suspectNames.map((name, i) => ({
       id: `s${i}`,
       name,
